@@ -3,6 +3,8 @@
 Website ucapan digital untuk pacar (love letter, birthday, anniversary). Dibuat dengan
 Next.js 15 + Tailwind CSS v4 + Framer Motion, backend Supabase (opsional), pembayaran Tripay.
 
+Live: https://ucapanpacar.vercel.app
+
 ## Menjalankan
 
 ```bash
