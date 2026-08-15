@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# UcapanPacar — Replika
 
-## Getting Started
+Website ucapan digital untuk pacar (love letter, birthday, anniversary). Dibuat dengan
+Next.js 15 + Tailwind CSS v4 + Framer Motion, backend Supabase (opsional), pembayaran Tripay.
 
-First, run the development server:
+## Menjalankan
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Buka `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Mode Demo vs Produksi
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Mode demo (default):** tanpa konfigurasi apa pun, pembayaran disimulasikan dan data
+  disimpan di localStorage browser. Cocok untuk uji alur (buat → bayar → bagikan → dashboard).
+- **Mode produksi:** salin `.env.example` ke `.env.local` dan isi kunci Tripay
+  (`TRIPAY_API_KEY`, `TRIPAY_PRIVATE_KEY`, `TRIPAY_MERCHANT_CODE`). Supabase menyusul —
+  skema siap di `supabase/schema.sql`.
 
-## Learn More
+## Struktur
 
-To learn more about Next.js, take a look at the following resources:
+| Jalur | Fungsi |
+|---|---|
+| `/` | Landing page |
+| `/templates` | Daftar & filter template |
+| `/buat/[slug]` | Builder multi-step + live preview |
+| `/checkout/[id]` | Pembayaran Tripay (demo otomatis bila tanpa key) |
+| `/t/[slug]/[id]` | Halaman publik ucapan (tracking kunjungan) |
+| `/dashboard` | Kelola ucapan, share link/QR, stats |
+| `components/templates/` | Template interaktif (daftarkan di `registry.tsx`) |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Tambah template baru = buat komponen di `components/templates/`, daftarkan di
+`registry.tsx`, lalu tambahkan meta di `lib/templates.ts`.
