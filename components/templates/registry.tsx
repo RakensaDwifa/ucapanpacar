@@ -6,11 +6,19 @@ import type { TemplateRenderProps } from "@/lib/types";
 const AmplopCinta = lazy(() => import("./AmplopCinta"));
 const BotolKenangan = lazy(() => import("./BotolKenangan"));
 const BuketBunga = lazy(() => import("./BuketBunga"));
+const SuratCinta = lazy(() => import("./SuratCinta"));
+const KartuUcapan = lazy(() => import("./KartuUcapan"));
+const Valentine = lazy(() => import("./Valentine"));
+const PermintaanMaaf = lazy(() => import("./PermintaanMaaf"));
 
 const REGISTRY: Record<string, React.ComponentType<TemplateRenderProps>> = {
   "amplop-cinta": AmplopCinta,
   "botol-kenangan": BotolKenangan,
   "buket-bunga": BuketBunga,
+  "surat-cinta": SuratCinta,
+  "kartu-ucapan": KartuUcapan,
+  valentine: Valentine,
+  "permintaan-maaf": PermintaanMaaf,
 };
 
 function TemplateLoading() {

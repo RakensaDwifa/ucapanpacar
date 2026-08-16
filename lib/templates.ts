@@ -31,6 +31,46 @@ export const TEMPLATES: TemplateMeta[] = [
     order: 3,
     gradient: "from-[#FBE3D0] to-[#F5C6A8]",
   },
+  {
+    slug: "surat-cinta",
+    name: "Surat Cinta",
+    type: "ungkapan-sayang",
+    description:
+      "Surat kertas bergaris dengan stempel hati. Klik, dan pesanmu terbaca pelan seperti dituliskan.",
+    active: true,
+    order: 4,
+    gradient: "from-[#F7E7C9] to-[#EED9AC]",
+  },
+  {
+    slug: "kartu-ucapan",
+    name: "Kartu Ucapan",
+    type: "birthday",
+    description:
+      "Kartu ucapan dengan pita dan kejutan di dalamnya. Semua doa terbaik untuk momen spesialnya.",
+    active: true,
+    order: 5,
+    gradient: "from-[#FFE9CE] to-[#FFC98F]",
+  },
+  {
+    slug: "valentine",
+    name: "Valentine",
+    type: "anniversary",
+    description:
+      "Hati berdenyut yang menyimpan surat berlapis. Untuk hari-hari penuh cinta kalian.",
+    active: true,
+    order: 6,
+    gradient: "from-[#FFDDE3] to-[#FF9DB0]",
+  },
+  {
+    slug: "permintaan-maaf",
+    name: "Permintaan Maaf",
+    type: "permintaan-maaf",
+    description:
+      "Cara paling menggemaskan untuk minta maaf. Tombol kaburnya bikin dia nggak bisa marah lama.",
+    active: true,
+    order: 7,
+    gradient: "from-[#E6EFE6] to-[#BFD8BF]",
+  },
 ];
 
 export const CATEGORY_ORDER: TemplateCategory[] = [
@@ -68,6 +108,10 @@ const TEMPLATE_EMOJI: Record<string, string> = {
   "amplop-cinta": "💌",
   "botol-kenangan": "🫙",
   "buket-bunga": "💐",
+  "surat-cinta": "✉️",
+  "kartu-ucapan": "🎀",
+  valentine: "❤️",
+  "permintaan-maaf": "🕊️",
 };
 
 export function templateEmoji(slug: string): string {
