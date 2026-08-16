@@ -15,7 +15,15 @@ const NAV_LINKS = [
   { label: "FAQ", href: "/#faq" },
 ];
 
-export default function Header({ userEmail }: { userEmail?: string | null }) {
+export default function Header({
+  userEmail,
+  userName,
+  userAvatar,
+}: {
+  userEmail?: string | null;
+  userName?: string | null;
+  userAvatar?: string | null;
+}) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
@@ -27,31 +35,41 @@ export default function Header({ userEmail }: { userEmail?: string | null }) {
     router.refresh();
   };
 
-  const authArea = (
+  const initial =
+    (userName?.trim().charAt(0) ?? userEmail?.trim().charAt(0) ?? "U").toUpperCase();
+
+  const userInfo = (
     <>
-      {userEmail ? (
-        <>
-          <Link
-            href="/dashboard"
-            className="text-body-md font-semibold text-gray-600 hover:text-primary transition-colors"
-          >
-            Dashboard
-          </Link>
-          <button
-            onClick={logout}
-            className="inline-flex items-center gap-1.5 text-body-md font-semibold text-gray-500 hover:text-red-500 transition-colors"
-          >
-            <LogOut className="h-4 w-4" /> Keluar
-          </button>
-        </>
-      ) : (
-        <Link
-          href="/login"
-          className="text-body-md font-semibold text-gray-600 hover:text-primary transition-colors"
-        >
-          Masuk
-        </Link>
-      )}
+      <div className="flex items-center gap-2.5">
+        {userAvatar ? (
+          <img
+            src={userAvatar}
+            alt={userName ?? "Profil"}
+            className="h-9 w-9 rounded-full object-cover border border-outline-variant"
+          />
+        ) : (
+          <div className="h-9 w-9 rounded-full bg-primary text-white flex items-center justify-center text-label-lg font-bold">
+            {initial}
+          </div>
+        )}
+        {userName && (
+          <span className="text-body-md font-semibold text-on-surface max-w-[140px] truncate">
+            {userName}
+          </span>
+        )}
+      </div>
+      <Link
+        href="/dashboard"
+        className="text-body-md font-semibold text-gray-600 hover:text-primary transition-colors"
+      >
+        Dashboard
+      </Link>
+      <button
+        onClick={logout}
+        className="inline-flex items-center gap-1.5 text-body-md font-semibold text-gray-500 hover:text-red-500 transition-colors"
+      >
+        <LogOut className="h-4 w-4" /> Keluar
+      </button>
     </>
   );
 
@@ -73,7 +91,16 @@ export default function Header({ userEmail }: { userEmail?: string | null }) {
         </nav>
 
         <div className="hidden lg:flex items-center gap-6">
-          {authArea}
+          {userEmail ? (
+            userInfo
+          ) : (
+            <Link
+              href="/login"
+              className="text-body-md font-semibold text-gray-600 hover:text-primary transition-colors"
+            >
+              Masuk
+            </Link>
+          )}
           <Link
             href="/templates"
             className="inline-flex items-center justify-center px-8 py-3.5 bg-primary text-white text-body-md font-semibold rounded-full shadow-[0_4px_14px_0_rgba(217,108,138,0.39)] hover:shadow-[0_6px_20px_rgba(217,108,138,0.23)] hover:-translate-y-0.5 transition-all duration-200"
@@ -106,6 +133,22 @@ export default function Header({ userEmail }: { userEmail?: string | null }) {
           <div className="flex items-center gap-4 pt-2">
             {userEmail ? (
               <>
+                {userAvatar ? (
+                  <img
+                    src={userAvatar}
+                    alt={userName ?? "Profil"}
+                    className="h-9 w-9 rounded-full object-cover border border-outline-variant"
+                  />
+                ) : (
+                  <div className="h-9 w-9 rounded-full bg-primary text-white flex items-center justify-center text-label-lg font-bold">
+                    {initial}
+                  </div>
+                )}
+                {userName && (
+                  <span className="text-body-md font-semibold text-on-surface">
+                    {userName}
+                  </span>
+                )}
                 <Link
                   href="/dashboard"
                   onClick={() => setOpen(false)}

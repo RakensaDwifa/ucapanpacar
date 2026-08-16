@@ -32,18 +32,24 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   let userEmail: string | null = null;
+  let userName: string | null = null;
+  let userAvatar: string | null = null;
   if (isRemote()) {
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    userEmail = user?.email ?? null;
+    if (user) {
+      userEmail = user.email ?? null;
+      userName = user.user_metadata?.full_name ?? user.user_metadata?.name ?? null;
+      userAvatar = user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? null;
+    }
   }
 
   return (
     <html lang="id" className={`${poppins.variable} ${dmSerif.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        <Header userEmail={userEmail} />
+        <Header userEmail={userEmail} userName={userName} userAvatar={userAvatar} />
         <main className="flex-1">{children}</main>
         <Footer />
         <FloatingChat />
