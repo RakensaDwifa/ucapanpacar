@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CreditCard, Loader2, Lock, Wallet } from "lucide-react";
 import { getUcapan } from "@/lib/store";
+import type { StoredUcapan } from "@/lib/store";
 
 interface Channel {
   group: string;
@@ -14,12 +15,36 @@ interface Channel {
 
 export default function Checkout({ id }: { id: string }) {
   const router = useRouter();
-  const [ucapan] = useState<ReturnType<typeof getUcapan>>(() => getUcapan(id));
+  const [ucapan, setUcapan] = useState<StoredUcapan | null>(null);
+  const [loadingUcapan, setLoadingUcapan] = useState(true);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [method, setMethod] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [demoMode, setDemoMode] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/ucapan/${id}`)
+      .then(async (r) => {
+        const json = await r.json();
+        if (cancelled) return;
+        if (json.ucapan) {
+          setUcapan(json.ucapan);
+        } else {
+          setUcapan(getUcapan(id));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setUcapan(getUcapan(id));
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingUcapan(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   useEffect(() => {
     fetch("/api/payment/channels")
@@ -31,6 +56,14 @@ export default function Checkout({ id }: { id: string }) {
       })
       .catch(() => setDemoMode(true));
   }, [id]);
+
+  if (loadingUcapan) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface">
+        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   if (!ucapan) {
     return (
@@ -151,7 +184,7 @@ export default function Checkout({ id }: { id: string }) {
           )}
 
           <button
-            onClick={pay}
+            onClick={() => void pay()}
             disabled={loading || (!demoMode && !method)}
             className="w-full inline-flex items-center justify-center gap-2 px-8 py-4 bg-primary text-white text-label-lg font-semibold rounded-full shadow-[0_8px_30px_rgba(217,108,138,0.35)] hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:hover:translate-y-0"
           >

@@ -4,6 +4,8 @@ import "./globals.css";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
 import FloatingChat from "@/components/landing/FloatingChat";
+import { createClient } from "@/lib/supabase/server";
+import { isRemote } from "@/lib/supabase/config";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -26,13 +28,22 @@ export const metadata: Metadata = {
     "Buat website ucapan personal untuk pacar kamu. Birthday, anniversary, love letter — kirim kejutan yang bikin dia tersenyum. Cuma Rp 8.900.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  let userEmail: string | null = null;
+  if (isRemote()) {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    userEmail = user?.email ?? null;
+  }
+
   return (
     <html lang="id" className={`${poppins.variable} ${dmSerif.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        <Header />
+        <Header userEmail={userEmail} />
         <main className="flex-1">{children}</main>
         <Footer />
         <FloatingChat />

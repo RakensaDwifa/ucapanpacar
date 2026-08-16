@@ -3,11 +3,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Check, Loader2, Music, Plus, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  ImagePlus,
+  Loader2,
+  Music,
+  Plus,
+  Upload,
+  X,
+} from "lucide-react";
 import { getTemplate, fillContentDefaults } from "@/lib/templates";
 import type { UcapanContent } from "@/lib/types";
 import { getDraft, getUcapan, saveDraft, savePaidUcapan } from "@/lib/store";
 import { makeUcapanId } from "@/lib/templates";
+import { createClient } from "@/lib/supabase/client";
+import { isRemote, supabaseUrl } from "@/lib/supabase/config";
+import { compressImage } from "@/lib/image";
 import TemplateRenderer from "@/components/templates/registry";
 
 const STEPS = ["Identitas", "Pesan", "Galeri & Musik", "Bayar"];
@@ -33,11 +46,30 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
     }
     return fillContentDefaults(getDraft(slug) ?? { templateSlug: slug });
   });
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     if (!template) return;
     saveDraft(slug, content);
   }, [content, slug, template]);
+
+  useEffect(() => {
+    if (!editId || !isRemote()) return;
+    let cancelled = false;
+    fetch(`/api/ucapan/${editId}`)
+      .then(async (r) => {
+        const json = await r.json();
+        if (!cancelled && json.ok && json.ucapan) {
+          setContent(fillContentDefaults(json.ucapan));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [editId]);
 
   const previewContent = useMemo(() => fillContentDefaults(content), [content]);
 
@@ -60,16 +92,73 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
   const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
   const prev = () => setStep((s) => Math.max(s - 1, 0));
 
-  const goToPayment = () => {
-    const id = editId ?? makeUcapanId();
-    savePaidUcapan({
-      ...fillContentDefaults(content),
-      id,
-      paid: editId ? Boolean(getUcapan(id)?.paid) : false,
-      paidAt: editId ? getUcapan(id)?.paidAt : undefined,
-      createdAt: editId ? getUcapan(id)?.createdAt ?? Date.now() : Date.now(),
-    });
-    router.push(`/checkout/${id}`);
+  const uploadPhotos = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    setSaveError("");
+    try {
+      const supabase = createClient();
+      for (const file of Array.from(files)) {
+        const blob = await compressImage(file);
+        const ext = blob.type === "image/webp" ? "webp" : "jpg";
+        const path = `${crypto.randomUUID()}.${ext}`;
+        const { error } = await supabase.storage
+          .from("foto")
+          .upload(path, blob, { contentType: blob.type });
+        if (error) throw error;
+        const url = `${supabaseUrl()}/storage/v1/object/public/foto/${path}`;
+        set("photos", [...(content.photos ?? []), url]);
+      }
+    } catch {
+      setSaveError("Gagal mengunggah foto. Coba lagi ya.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const goToPayment = async () => {
+    setSaving(true);
+    setSaveError("");
+    try {
+      if (isRemote()) {
+        const full = fillContentDefaults(content);
+        const res = await fetch(
+          editId ? `/api/ucapan/${editId}` : "/api/ucapan",
+          {
+            method: editId ? "PUT" : "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(full),
+          }
+        );
+        if (res.status === 401) {
+          router.push(`/login?next=${encodeURIComponent(`/buat/${slug}${editId ? `?edit=${editId}` : ""}`)}`);
+          return;
+        }
+        const json = await res.json();
+        if (!json.ok) {
+          setSaveError(
+            json.error === "EDIT_WINDOW_EXPIRED"
+              ? "Masa edit 7 hari sudah habis."
+              : "Gagal menyimpan ucapan. Coba lagi ya."
+          );
+          return;
+        }
+        saveDraft(slug, content);
+        router.push(`/checkout/${json.id ?? editId}`);
+      } else {
+        const id = editId ?? makeUcapanId();
+        savePaidUcapan({
+          ...fillContentDefaults(content),
+          id,
+          paid: editId ? Boolean(getUcapan(id)?.paid) : false,
+          paidAt: editId ? getUcapan(id)?.paidAt : undefined,
+          createdAt: editId ? getUcapan(id)?.createdAt ?? Date.now() : Date.now(),
+        });
+        router.push(`/checkout/${id}`);
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   const inputClass =
@@ -191,41 +280,88 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
                 </h2>
                 <div>
                   <label className="block text-label-lg font-semibold text-on-surface mb-1.5">
-                    Foto Kenangan (URL)
+                    Foto Kenangan
                   </label>
-                  <div className="flex flex-col gap-2">
-                    {(content.photos ?? []).map((photo, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <input
-                          className={inputClass}
-                          value={photo}
-                          onChange={(e) => {
-                            const photos = [...(content.photos ?? [])];
-                            photos[i] = e.target.value;
-                            set("photos", photos);
-                          }}
-                        />
-                        <button
-                          onClick={() =>
-                            set("photos", (content.photos ?? []).filter((_, j) => j !== i))
-                          }
-                          aria-label="Hapus foto"
-                          className="p-2.5 rounded-full text-on-surface-variant hover:text-primary transition-colors shrink-0"
+                  <label className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-outline-variant bg-surface-container-low/50 px-4 py-8 cursor-pointer hover:border-primary/50 hover:bg-primary-fixed/10 transition-colors">
+                    <ImagePlus className="h-8 w-8 text-primary" />
+                    <span className="text-body-md font-semibold text-on-surface">
+                      {uploading ? "Mengunggah…" : "Pilih Foto dari Galeri / Kamera"}
+                    </span>
+                    <span className="text-label-md text-on-surface-variant">
+                      Otomatis dikompres & diunggah · maks 10MB/foto
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      disabled={uploading}
+                      onChange={(e) => {
+                        void uploadPhotos(e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  {(content.photos ?? []).length > 0 && (
+                    <div className="grid grid-cols-3 gap-3 mt-4">
+                      {(content.photos ?? []).map((photo, i) => (
+                        <div
+                          key={`${photo}-${i}`}
+                          className="relative aspect-square rounded-2xl overflow-hidden border border-outline-variant/30 bg-surface-container-low"
                         >
-                          <X className="h-5 w-5" />
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      onClick={() => set("photos", [...(content.photos ?? []), ""])}
-                      className="inline-flex items-center gap-2 self-start text-label-lg font-semibold text-primary hover:bg-primary-fixed/30 rounded-full px-4 py-2 transition-colors"
-                    >
-                      <Plus className="h-4 w-4" /> Tambah foto
-                    </button>
-                    <p className="text-label-md text-on-surface-variant">
-                      Upload otomatis segera hadir — untuk sekarang tempel URL gambar saja.
-                    </p>
-                  </div>
+                          <img
+                            src={photo}
+                            alt={`Foto ${i + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            onClick={() =>
+                              set("photos", (content.photos ?? []).filter((_, j) => j !== i))
+                            }
+                            aria-label="Hapus foto"
+                            className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <details className="mt-3">
+                    <summary className="cursor-pointer text-label-md font-semibold text-primary">
+                      atau tempel URL gambar
+                    </summary>
+                    <div className="flex flex-col gap-2 mt-2">
+                      {(content.photos ?? []).map((photo, i) => (
+                        <div key={`url-${i}`} className="flex items-center gap-2">
+                          <input
+                            className={inputClass}
+                            value={photo}
+                            onChange={(e) => {
+                              const photos = [...(content.photos ?? [])];
+                              photos[i] = e.target.value;
+                              set("photos", photos);
+                            }}
+                          />
+                          <button
+                            onClick={() =>
+                              set("photos", (content.photos ?? []).filter((_, j) => j !== i))
+                            }
+                            aria-label="Hapus foto"
+                            className="p-2.5 rounded-full text-on-surface-variant hover:text-primary transition-colors shrink-0"
+                          >
+                            <X className="h-5 w-5" />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => set("photos", [...(content.photos ?? []), ""])}
+                        className="inline-flex items-center gap-2 self-start text-label-lg font-semibold text-primary hover:bg-primary-fixed/30 rounded-full px-4 py-2 transition-colors"
+                      >
+                        <Plus className="h-4 w-4" /> Tambah URL
+                      </button>
+                    </div>
+                  </details>
                 </div>
                 <div>
                   <label className="block text-label-lg font-semibold text-on-surface mb-1.5">
@@ -254,6 +390,7 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
                     ["Dari", content.fromName || "—"],
                     ["Judul", content.title || "—"],
                     ["Pesan", `${content.message?.length ?? 0} karakter`],
+                    ["Foto", `${content.photos?.filter(Boolean).length ?? 0} foto`],
                     ["Harga", "Rp 8.900 (sekali bayar)"],
                   ].map(([label, value]) => (
                     <div key={label} className="flex justify-between gap-4">
@@ -264,16 +401,28 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
                     </div>
                   ))}
                 </div>
+                {saveError && (
+                  <p className="text-body-md text-red-600">{saveError}</p>
+                )}
                 <p className="text-label-md text-on-surface-variant leading-relaxed">
                   ✅ Link aktif selamanya · ✅ Edit 7 hari setelah bayar · ✅ Bisa dibagikan via
                   link & QR · ✅ Jejak kunjungan real-time
                 </p>
                 <button
-                  onClick={goToPayment}
-                  className="w-full inline-flex items-center justify-center gap-2 px-8 py-4 bg-primary text-white text-label-lg font-semibold rounded-full shadow-[0_8px_30px_rgba(217,108,138,0.35)] hover:-translate-y-0.5 transition-all duration-300"
+                  onClick={() => void goToPayment()}
+                  disabled={saving}
+                  className="w-full inline-flex items-center justify-center gap-2 px-8 py-4 bg-primary text-white text-label-lg font-semibold rounded-full shadow-[0_8px_30px_rgba(217,108,138,0.35)] hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-60 disabled:hover:translate-y-0"
                 >
-                  <Loader2 className="hidden" />
-                  Lanjut ke Pembayaran — Rp 8.900
+                  {saving ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" /> Menyimpan…
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="hidden" />
+                      Lanjut ke Pembayaran — Rp 8.900
+                    </>
+                  )}
                 </button>
               </div>
             )}

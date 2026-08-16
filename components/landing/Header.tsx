@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { LogOut, Menu, X } from "lucide-react";
 import Logo from "./Logo";
+import { createClient } from "@/lib/supabase/client";
+import { isRemote } from "@/lib/supabase/config";
 
 const NAV_LINKS = [
   { label: "Cara Kerja", href: "/#cara-kerja" },
@@ -12,8 +15,45 @@ const NAV_LINKS = [
   { label: "FAQ", href: "/#faq" },
 ];
 
-export default function Header() {
+export default function Header({ userEmail }: { userEmail?: string | null }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
+
+  const logout = async () => {
+    if (isRemote()) {
+      await createClient().auth.signOut();
+    }
+    router.push("/");
+    router.refresh();
+  };
+
+  const authArea = (
+    <>
+      {userEmail ? (
+        <>
+          <Link
+            href="/dashboard"
+            className="text-body-md font-semibold text-gray-600 hover:text-primary transition-colors"
+          >
+            Dashboard
+          </Link>
+          <button
+            onClick={logout}
+            className="inline-flex items-center gap-1.5 text-body-md font-semibold text-gray-500 hover:text-red-500 transition-colors"
+          >
+            <LogOut className="h-4 w-4" /> Keluar
+          </button>
+        </>
+      ) : (
+        <Link
+          href="/login"
+          className="text-body-md font-semibold text-gray-600 hover:text-primary transition-colors"
+        >
+          Masuk
+        </Link>
+      )}
+    </>
+  );
 
   return (
     <header className="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-md shadow-sm border-b border-surface-container-low">
@@ -33,12 +73,7 @@ export default function Header() {
         </nav>
 
         <div className="hidden lg:flex items-center gap-6">
-          <Link
-            href="/dashboard"
-            className="text-body-md font-semibold text-gray-600 hover:text-primary transition-colors"
-          >
-            Masuk
-          </Link>
+          {authArea}
           <Link
             href="/templates"
             className="inline-flex items-center justify-center px-8 py-3.5 bg-primary text-white text-body-md font-semibold rounded-full shadow-[0_4px_14px_0_rgba(217,108,138,0.39)] hover:shadow-[0_6px_20px_rgba(217,108,138,0.23)] hover:-translate-y-0.5 transition-all duration-200"
@@ -69,13 +104,34 @@ export default function Header() {
             </Link>
           ))}
           <div className="flex items-center gap-4 pt-2">
-            <Link
-              href="/dashboard"
-              onClick={() => setOpen(false)}
-              className="text-body-md font-semibold text-gray-600 hover:text-primary transition-colors"
-            >
-              Masuk
-            </Link>
+            {userEmail ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  onClick={() => setOpen(false)}
+                  className="text-body-md font-semibold text-gray-600 hover:text-primary transition-colors"
+                >
+                  Dashboard
+                </Link>
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    void logout();
+                  }}
+                  className="text-body-md font-semibold text-gray-500 hover:text-red-500 transition-colors"
+                >
+                  Keluar
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setOpen(false)}
+                className="text-body-md font-semibold text-gray-600 hover:text-primary transition-colors"
+              >
+                Masuk
+              </Link>
+            )}
             <Link
               href="/templates"
               onClick={() => setOpen(false)}

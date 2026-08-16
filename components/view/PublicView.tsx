@@ -5,11 +5,23 @@ import { getUcapan, trackView } from "@/lib/store";
 import type { StoredUcapan } from "@/lib/store";
 import TemplateRenderer from "@/components/templates/registry";
 
-export default function PublicView({ id }: { id: string }) {
-  const [ucapan] = useState<StoredUcapan | null>(() => getUcapan(id));
+export default function PublicView({
+  id,
+  remote,
+}: {
+  id: string;
+  remote?: StoredUcapan | null;
+}) {
+  const [ucapan] = useState<StoredUcapan | null>(() => remote ?? getUcapan(id));
 
   useEffect(() => {
-    if (ucapan) trackView(id);
+    if (!ucapan) return;
+    trackView(id);
+    fetch("/api/views", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ucapanId: id }),
+    }).catch(() => undefined);
   }, [id, ucapan]);
 
   if (!ucapan) {

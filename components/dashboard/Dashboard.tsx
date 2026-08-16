@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";import Link from "next/link";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import {
   Copy,
@@ -16,28 +17,57 @@ import type { StoredUcapan, ViewRecord } from "@/lib/store";
 
 const EDIT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
+interface RemoteUcapan extends StoredUcapan {
+  views?: { count: number; firstSeen?: number; lastSeen?: number };
+}
+
 export default function Dashboard() {
-  const [ucapans, setUcapans] = useState<StoredUcapan[]>(() => listUcapan());
-  const [views, setViews] = useState<Record<string, ViewRecord>>(() => {
-    const v: Record<string, ViewRecord> = {};
-    for (const u of listUcapan()) {
-      const rec = getViews(u.id);
-      if (rec) v[u.id] = rec;
-    }
-    return v;
-  });
-  const [now] = useState(() => Date.now());
+  const [ucapans, setUcapans] = useState<RemoteUcapan[]>([]);
+  const [demo, setDemo] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [localViews, setLocalViews] = useState<Record<string, ViewRecord>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [openQr, setOpenQr] = useState<string | null>(null);
+  const [now] = useState(() => Date.now());
 
-  const remove = (id: string) => {
-    deleteUcapan(id);
-    setUcapans(listUcapan());
-    setViews((v) => {
-      const next = { ...v };
-      delete next[id];
-      return next;
-    });
+  useEffect(() => {
+    fetch("/api/ucapan")
+      .then(async (r) => {
+        const json = await r.json();
+        if (json.demo) {
+          setDemo(true);
+          setUcapans(listUcapan());
+          const v: Record<string, ViewRecord> = {};
+          for (const u of listUcapan()) {
+            const rec = getViews(u.id);
+            if (rec) v[u.id] = rec;
+          }
+          setLocalViews(v);
+        } else if (json.ok) {
+          setDemo(false);
+          setUcapans(json.ucapans ?? []);
+        }
+      })
+      .catch(() => {
+        setDemo(true);
+        setUcapans(listUcapan());
+      })
+      .finally(() => setLoaded(true));
+  }, []);
+
+  const remove = async (id: string) => {
+    if (demo) {
+      deleteUcapan(id);
+      setUcapans(listUcapan());
+      setLocalViews((v) => {
+        const next = { ...v };
+        delete next[id];
+        return next;
+      });
+      return;
+    }
+    await fetch(`/api/ucapan/${id}`, { method: "DELETE" });
+    setUcapans((list) => list.filter((u) => u.id !== id));
   };
 
   const copyLink = async (id: string) => {
@@ -51,8 +81,18 @@ export default function Dashboard() {
     }
   };
 
-  const canEdit = (u: StoredUcapan) =>
-    now - (u.paidAt ?? u.createdAt) < EDIT_WINDOW_MS;
+  const viewOf = (u: RemoteUcapan) =>
+    demo ? localViews[u.id] : u.views ?? undefined;
+
+  if (!loaded) {
+    return (
+      <div className="min-h-screen bg-surface pt-24 pb-16">
+        <div className="max-w-[1100px] mx-auto px-5 md:px-16">
+          <p className="text-body-md text-on-surface-variant">Memuat dashboard…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-surface pt-24 pb-16">
@@ -71,6 +111,15 @@ export default function Dashboard() {
             <Heart className="h-4 w-4 fill-current" /> Buat Ucapan Baru
           </Link>
         </div>
+
+        {demo && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 mb-6">
+            <p className="text-body-md text-amber-800">
+              🧪 Mode demo — data disimpan di browser ini saja. Sambungkan
+              Supabase agar dashboard tersinkron di semua perangkat.
+            </p>
+          </div>
+        )}
 
         {ucapans.length === 0 ? (
           <div className="bg-white rounded-3xl border border-outline-variant/30 shadow-card p-14 text-center">
@@ -93,8 +142,9 @@ export default function Dashboard() {
         ) : (
           <div className="grid gap-6">
             {ucapans.map((u) => {
-              const view = views[u.id];
-              const editOpen = canEdit(u);
+              const view = viewOf(u);
+              const editOpen =
+                now - (u.paidAt ?? u.createdAt) < EDIT_WINDOW_MS;
               const qr = openQr === u.id;
               const url = `${window.location.origin}/t/${u.id.slice(0, 8)}/${u.id}`;
               return (
@@ -126,7 +176,7 @@ export default function Dashboard() {
                           <Eye className="h-4 w-4 text-primary" />
                           {view ? `${view.count}× dilihat` : "Belum dilihat"}
                         </span>
-                        {view && (
+                        {view?.firstSeen && (
                           <span>
                             Pertama dibuka{" "}
                             {new Date(view.firstSeen).toLocaleString("id-ID")}

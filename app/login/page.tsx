@@ -2,21 +2,21 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isRemote } from "@/lib/supabase/config";
-import Dashboard from "@/components/dashboard/Dashboard";
+import LoginForm from "@/components/auth/LoginForm";
 
 export const metadata: Metadata = {
-  title: "Dashboard",
-  description: "Kelola ucapan dan pantau kunjungan.",
+  title: "Masuk",
+  description: "Masuk ke dashboard UcapanPacar.",
 };
 
-export default async function DashboardPage() {
+export default async function LoginPage() {
   if (isRemote()) {
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) redirect("/login");
+    if (user) redirect("/dashboard");
   }
 
-  return <Dashboard />;
+  return <LoginForm remote={isRemote()} />;
 }

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { CheckCircle2, Copy, ExternalLink, LayoutDashboard, Loader2 } from "lucide-react";
 import { getUcapan, savePaidUcapan } from "@/lib/store";
+import { isRemote } from "@/lib/supabase/config";
 
 function SuccessInner({ id }: { id: string }) {
   const searchParams = useSearchParams();
@@ -19,12 +20,19 @@ function SuccessInner({ id }: { id: string }) {
     const demo = searchParams.get("demo");
     const ref = searchParams.get("ref");
 
-    const finalize = () => {
+    const finalize = async () => {
       const u = getUcapan(id);
       if (u) {
         savePaidUcapan({ ...u, paid: true, paidAt: Date.now() });
-        setState("done");
       }
+      if (isRemote()) {
+        await fetch(`/api/ucapan/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ activate: true }),
+        }).catch(() => undefined);
+      }
+      setState("done");
     };
 
     if (demo === "1") {

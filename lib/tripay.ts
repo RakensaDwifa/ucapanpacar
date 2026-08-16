@@ -1,5 +1,3 @@
-import { getUcapan } from "./store";
-
 const TRIPAY_BASE = () =>
   process.env.TRIPAY_MODE === "production"
     ? "https://tripay.co.id/api/"
@@ -40,6 +38,8 @@ export async function getPaymentChannels(): Promise<TripayChannel[]> {
 
 export async function createTripayTransaction(input: {
   ucapanId: string;
+  merchantRef: string;
+  templateSlug: string;
   method: string;
   customerName: string;
   customerEmail?: string;
@@ -48,10 +48,7 @@ export async function createTripayTransaction(input: {
     return { ok: false, error: "PAYMENT_NOT_CONFIGURED" };
   }
 
-  const ucapan = getUcapan(input.ucapanId);
-  if (!ucapan) return { ok: false, error: "UCAPAN_NOT_FOUND" };
-
-  const merchantRef = `UP-${input.ucapanId.slice(0, 8)}-${Date.now().toString(36).toUpperCase()}`;
+  const merchantRef = input.merchantRef;
   const baseUrl = process.env.APP_URL ?? "http://localhost:3000";
   const callbackUrl = process.env.TRIPAY_CALLBACK_URL ?? `${baseUrl}/api/payment/webhook`;
   const returnUrl = `${baseUrl}/checkout/${input.ucapanId}/selesai?ref=${merchantRef}`;
@@ -72,8 +69,8 @@ export async function createTripayTransaction(input: {
         customer_email: input.customerEmail ?? undefined,
         order_items: [
           {
-            sku: `TEMPLATE-${ucapan.templateSlug}`,
-            name: `Template ${ucapan.templateSlug}`,
+            sku: `TEMPLATE-${input.templateSlug}`,
+            name: `Template ${input.templateSlug}`,
             price: 8900,
             quantity: 1,
           },
