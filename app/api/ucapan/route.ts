@@ -60,9 +60,6 @@ export async function POST(request: Request) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ ok: false, error: "NEED_LOGIN" }, { status: 401 });
-  }
 
   if (!body.templateSlug) {
     return NextResponse.json({ ok: false, error: "MISSING_TEMPLATE" }, { status: 400 });
@@ -71,7 +68,7 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from("ucapan")
     .insert({
-      owner_id: user.id,
+      owner_id: user?.id ?? null,
       ...toUcapanRow(body as never),
     })
     .select("id")
