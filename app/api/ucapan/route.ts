@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isRemote } from "@/lib/supabase/config";
 import { mapUcapanRow, toUcapanRow } from "@/lib/supabase/rows";
 import type { UcapanRow, UcapanStatsRow } from "@/lib/supabase/rows";
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "MISSING_TEMPLATE" }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await createAdminClient()
     .from("ucapan")
     .insert({
       owner_id: user?.id ?? null,
