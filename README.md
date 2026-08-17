@@ -1,7 +1,8 @@
 # UcapanPacar — Replika
 
 Website ucapan digital untuk pacar (love letter, birthday, anniversary). Dibuat dengan
-Next.js 15 + Tailwind CSS v4 + Framer Motion, backend Supabase (opsional), pembayaran Tripay.
+Next.js 16 + Tailwind CSS + Framer Motion, backend Supabase (auth Google/magic link, DB,
+upload foto, tracking kunjungan), pembayaran Midtrans (QRIS & e-wallet).
 
 Live: https://ucapanpacar.vercel.app
 
@@ -18,9 +19,10 @@ Buka `http://localhost:3000`.
 
 - **Mode demo (default):** tanpa konfigurasi apa pun, pembayaran disimulasikan dan data
   disimpan di localStorage browser. Cocok untuk uji alur (buat → bayar → bagikan → dashboard).
-- **Mode produksi:** salin `.env.example` ke `.env.local` dan isi kunci Tripay
-  (`TRIPAY_API_KEY`, `TRIPAY_PRIVATE_KEY`, `TRIPAY_MERCHANT_CODE`). Supabase menyusul —
-  skema siap di `supabase/schema.sql`.
+- **Mode produksi:** salin `.env.example` ke `.env.local` dan isi kunci Midtrans
+  (`MIDTRANS_SERVER_KEY`, `MIDTRANS_CLIENT_KEY`, `MIDTRANS_MODE`, `MIDTRANS_CALLBACK_URL`)
+  serta Supabase (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+  `SUPABASE_SERVICE_ROLE_KEY`). Skema tersedia di `supabase/schema_v2.sql`.
 
 ## Struktur
 
@@ -29,7 +31,7 @@ Buka `http://localhost:3000`.
 | `/` | Landing page |
 | `/templates` | Daftar & filter template |
 | `/buat/[slug]` | Builder multi-step + live preview |
-| `/checkout/[id]` | Pembayaran Tripay (demo otomatis bila tanpa key) |
+| `/checkout/[id]` | Pembayaran Midtrans Snap (demo otomatis bila tanpa key) |
 | `/t/[slug]/[id]` | Halaman publik ucapan (tracking kunjungan) |
 | `/dashboard` | Kelola ucapan, share link/QR, stats |
 | `components/templates/` | Template interaktif (daftarkan di `registry.tsx`) |

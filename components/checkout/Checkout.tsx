@@ -2,26 +2,25 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CreditCard, Loader2, Lock, Wallet } from "lucide-react";
+import { ArrowLeft, CreditCard, Loader2, Lock, QrCode, Wallet } from "lucide-react";
 import { getUcapan } from "@/lib/store";
 import type { StoredUcapan } from "@/lib/store";
 
-interface Channel {
-  group: string;
-  code: string;
-  name: string;
-  type: string;
-}
+const PAYMENT_METHODS = [
+  { icon: "📱", name: "QRIS", note: "GoPay, OVO, DANA, ShopeePay, LinkAja & m-banking" },
+  { icon: "👛", name: "GoPay", note: "E-wallet" },
+  { icon: "🛍️", name: "ShopeePay", note: "E-wallet" },
+  { icon: "💚", name: "OVO", note: "E-wallet" },
+  { icon: "💙", name: "DANA", note: "E-wallet" },
+];
 
 export default function Checkout({ id }: { id: string }) {
   const router = useRouter();
   const [ucapan, setUcapan] = useState<StoredUcapan | null>(null);
   const [loadingUcapan, setLoadingUcapan] = useState(true);
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [method, setMethod] = useState<string>("");
+  const [demoMode, setDemoMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [demoMode, setDemoMode] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,11 +48,7 @@ export default function Checkout({ id }: { id: string }) {
   useEffect(() => {
     fetch("/api/payment/channels")
       .then((r) => r.json())
-      .then((json: { demo: boolean; channels: Channel[] }) => {
-        setDemoMode(json.demo);
-        setChannels(json.channels);
-        if (json.channels.length > 0) setMethod(json.channels[0].code);
-      })
+      .then((json: { demo: boolean }) => setDemoMode(json.demo))
       .catch(() => setDemoMode(true));
   }, [id]);
 
@@ -90,7 +85,6 @@ export default function Checkout({ id }: { id: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ucapanId: id,
-          method,
           customerName: ucapan.fromName || "Pelanggan",
         }),
       }).then((r) => r.json());
@@ -138,44 +132,33 @@ export default function Checkout({ id }: { id: string }) {
                 🧪 Mode Demo Aktif
               </p>
               <p className="text-body-md text-on-surface-variant">
-                Konfigurasi API Tripay belum ada, jadi pembayaran akan disimulasikan.
+                Konfigurasi payment gateway belum ada, jadi pembayaran akan disimulasikan.
                 Setelah ini ucapan langsung aktif — cocok untuk uji coba alur.
               </p>
             </div>
           ) : (
             <div className="mb-6">
               <p className="text-label-lg font-semibold text-on-surface mb-3 flex items-center gap-2">
-                <Wallet className="h-4 w-4" /> Pilih Metode Pembayaran
+                <Wallet className="h-4 w-4" /> Metode Pembayaran
               </p>
-              {channels.length === 0 ? (
-                <p className="text-body-md text-on-surface-variant">
-                  Memuat metode pembayaran…
-                </p>
-              ) : (
-                <div className="grid gap-2 max-h-64 overflow-y-auto pr-1">
-                  {channels.map((c) => (
-                    <label
-                      key={c.code}
-                      className={`flex items-center gap-3 rounded-2xl border px-4 py-3 cursor-pointer transition-all ${
-                        method === c.code
-                          ? "border-primary bg-primary-fixed/20"
-                          : "border-outline-variant hover:border-primary/40"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="method"
-                        value={c.code}
-                        checked={method === c.code}
-                        onChange={() => setMethod(c.code)}
-                        className="accent-primary"
-                      />
-                      <span className="text-body-md font-semibold text-on-surface">{c.name}</span>
-                      <span className="ml-auto text-label-md text-on-surface-variant">{c.group}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
+              <div className="grid grid-cols-1 gap-2">
+                {PAYMENT_METHODS.map((m) => (
+                  <div
+                    key={m.name}
+                    className="flex items-center gap-3 rounded-2xl border border-outline-variant bg-surface-container-low px-4 py-3"
+                  >
+                    <span className="text-xl">{m.icon}</span>
+                    <div>
+                      <p className="text-body-md font-semibold text-on-surface">{m.name}</p>
+                      <p className="text-label-md text-on-surface-variant">{m.note}</p>
+                    </div>
+                    <QrCode className="ml-auto h-5 w-5 text-primary" />
+                  </div>
+                ))}
+              </div>
+              <p className="text-label-md text-on-surface-variant mt-3">
+                Pilih metode di halaman pembayaran setelah klik bayar.
+              </p>
             </div>
           )}
 
@@ -185,7 +168,7 @@ export default function Checkout({ id }: { id: string }) {
 
           <button
             onClick={() => void pay()}
-            disabled={loading || (!demoMode && !method)}
+            disabled={loading}
             className="w-full inline-flex items-center justify-center gap-2 px-8 py-4 bg-primary text-white text-label-lg font-semibold rounded-full shadow-[0_8px_30px_rgba(217,108,138,0.35)] hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:hover:translate-y-0"
           >
             {loading ? (
@@ -195,12 +178,12 @@ export default function Checkout({ id }: { id: string }) {
             ) : (
               <>
                 <Lock className="h-4 w-4" />
-                {demoMode ? "Aktifkan Sekarang (Demo)" : `Bayar Rp 8.900`}
+                {demoMode ? "Aktifkan Sekarang (Demo)" : "Bayar Rp 8.900"}
               </>
             )}
           </button>
           <p className="text-label-md text-on-surface-variant text-center mt-4 flex items-center justify-center gap-1.5">
-            <Lock className="h-3.5 w-3.5" /> Pembayaran aman & proses instan
+            <Lock className="h-3.5 w-3.5" /> Pembayaran aman via Midtrans
           </p>
         </div>
       </div>

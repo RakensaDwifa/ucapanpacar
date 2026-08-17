@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
-import { getPaymentChannels, tripayConfigured } from "@/lib/tripay";
+import { midtransConfigured } from "@/lib/midtrans";
 
 export const dynamic = "force-dynamic";
 
+const ACTIVE_CHANNELS = [
+  { group: "QRIS", code: "qris", name: "QRIS (semua e-wallet & m-banking)", type: "qris" },
+  { group: "E-Wallet", code: "gopay", name: "GoPay", type: "gopay" },
+  { group: "E-Wallet", code: "shopeepay", name: "ShopeePay", type: "shopeepay" },
+  { group: "E-Wallet", code: "ovo", name: "OVO", type: "ovo" },
+  { group: "E-Wallet", code: "dana", name: "DANA", type: "dana" },
+];
+
 export async function GET() {
-  if (!tripayConfigured()) {
+  if (!midtransConfigured()) {
     return NextResponse.json({ demo: true, channels: [] });
   }
-  const channels = await getPaymentChannels();
-  return NextResponse.json({ demo: false, channels });
+  return NextResponse.json({ demo: false, channels: ACTIVE_CHANNELS });
 }

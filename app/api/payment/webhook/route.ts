@@ -1,30 +1,29 @@
-import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { isRemote } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const payload = await request.text();
-  const signature = request.headers.get("x-callback-signature") ?? "";
+  const payload = await request.json();
+  const signatureKey: string = payload.signature_key ?? "";
+  const orderId: string = payload.order_id ?? "";
+  const statusCode: string = String(payload.status_code ?? "");
+  const grossAmount: string = String(payload.gross_amount ?? "");
+  const transactionStatus: string = payload.transaction_status ?? "";
+  const fraudStatus: string | undefined = payload.fraud_status;
 
-  const privateKey = process.env.TRIPAY_PRIVATE_KEY;
-  if (!privateKey) {
-    return NextResponse.json({ success: false, message: "Webhook belum dikonfigurasi" }, { status: 503 });
-  }
+  const { verifyMidtransSignature } = await import("@/lib/midtrans");
 
-  const expected = crypto
-    .createHmac("sha256", privateKey)
-    .update(payload)
-    .digest("hex");
-
-  if (signature !== expected) {
+  if (!verifyMidtransSignature(orderId, statusCode, grossAmount, signatureKey)) {
     return NextResponse.json({ success: false, message: "Signature tidak valid" }, { status: 401 });
   }
 
-  const data = JSON.parse(payload);
-  const isPaid = data.status === "PAID";
-  const merchantRef: string = data.merchant_ref ?? "";
+  const isPaid =
+    (transactionStatus === "settlement" || transactionStatus === "capture") &&
+    statusCode === "200" &&
+    (!fraudStatus || fraudStatus === "accept");
+
+  const merchantRef = orderId;
   const now = new Date().toISOString();
 
   if (isPaid && isRemote()) {
@@ -33,7 +32,7 @@ export async function POST(request: Request) {
 
     const { data: payment } = await admin
       .from("payments")
-      .select("ucapan_id")
+      .select("ucapan_id,status")
       .eq("merchant_ref", merchantRef)
       .maybeSingle();
 
@@ -50,20 +49,23 @@ export async function POST(request: Request) {
     }
 
     if (ucapanId) {
+      const alreadyPaid = payment?.status === "PAID";
       await admin
         .from("payments")
         .update({
           status: "PAID",
-          method: data.payment_method ?? undefined,
-          tripay_ref: data.reference ?? null,
+          method: payload.payment_type ?? "snap",
+          tripay_ref: payload.transaction_id ?? null,
           paid_at: now,
         })
         .eq("merchant_ref", merchantRef);
 
-      await admin
-        .from("ucapan")
-        .update({ paid: true, paid_at: now, updated_at: now })
-        .eq("id", ucapanId);
+      if (!alreadyPaid) {
+        await admin
+          .from("ucapan")
+          .update({ paid: true, paid_at: now, updated_at: now })
+          .eq("id", ucapanId);
+      }
 
       console.info("[payment-webhook] PAID + DB aktif", { ref: merchantRef, ucapanId });
     } else {
@@ -72,10 +74,10 @@ export async function POST(request: Request) {
       });
     }
   } else {
-    console.info("[payment-webhook] PAID (mode demo)", {
+    console.info("[payment-webhook] status non-PAID", {
       ref: merchantRef,
-      amount: data.amount,
-      method: data.payment_method,
+      status: transactionStatus,
+      statusCode,
     });
   }
 

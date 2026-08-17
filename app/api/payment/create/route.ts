@@ -1,19 +1,19 @@
 import { NextResponse } from "next/server";
-import { createTripayTransaction } from "@/lib/tripay";
+import { createSnapTransaction } from "@/lib/midtrans";
 import { getUcapan } from "@/lib/store";
 import { isRemote } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  let body: { ucapanId?: string; method?: string; customerName?: string };
+  let body: { ucapanId?: string; customerName?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ ok: false, error: "INVALID_BODY" }, { status: 400 });
   }
 
-  if (!body.ucapanId || !body.method) {
+  if (!body.ucapanId) {
     return NextResponse.json({ ok: false, error: "MISSING_FIELDS" }, { status: 400 });
   }
 
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     const { error: insertError } = await admin.from("payments").insert({
       ucapan_id: ucapanId,
       merchant_ref: merchantRef,
-      method: body.method,
+      method: "snap",
       amount: 8900,
       status: "UNPAID",
     });
@@ -53,11 +53,10 @@ export async function POST(request: Request) {
     }
   }
 
-  const result = await createTripayTransaction({
+  const result = await createSnapTransaction({
     ucapanId,
     merchantRef,
     templateSlug,
-    method: body.method,
     customerName: body.customerName ?? "Pelanggan",
   });
 
