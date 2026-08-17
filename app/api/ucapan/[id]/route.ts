@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isRemote } from "@/lib/supabase/config";
 import { mapUcapanRow, toUcapanRow } from "@/lib/supabase/rows";
 import type { UcapanRow, UcapanStatsRow } from "@/lib/supabase/rows";
@@ -11,6 +12,24 @@ const EDIT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 interface FetchResult {
   ucapan: ReturnType<typeof mapUcapanRow> | null;
   user: { id: string } | null;
+}
+
+async function fetchUcapanAdmin(id: string) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("ucapan")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error || !data) return null;
+
+  const { data: stats } = await supabase
+    .from("ucapan_stats")
+    .select("ucapan_id, total_views, first_view_at, last_view_at")
+    .eq("ucapan_id", id)
+    .maybeSingle();
+
+  return mapUcapanRow(data as UcapanRow, stats as UcapanStatsRow | null);
 }
 
 async function fetchUcapan(id: string): Promise<FetchResult> {
@@ -46,7 +65,7 @@ export async function GET(
     return NextResponse.json({ ok: true, demo: true, ucapan: null });
   }
   const { id } = await params;
-  const { ucapan } = await fetchUcapan(id);
+  const ucapan = await fetchUcapanAdmin(id);
   if (!ucapan) {
     return NextResponse.json({ ok: false, error: "NOT_FOUND" }, { status: 404 });
   }
