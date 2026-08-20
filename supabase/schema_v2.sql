@@ -89,8 +89,25 @@ create policy "pemilik baca kunjungan" on public.views
     select 1 from public.ucapan u where u.id = views.ucapan_id and u.owner_id = auth.uid()
   ));
 
-alter publication supabase_realtime add table public.views;
-alter publication supabase_realtime add table public.ucapan;
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'views'
+  ) then
+    alter publication supabase_realtime add table public.views;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'ucapan'
+  ) then
+    alter publication supabase_realtime add table public.ucapan;
+  end if;
+end $$;
 
 create or replace view public.ucapan_stats as
 select

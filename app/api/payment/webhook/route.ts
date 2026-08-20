@@ -67,7 +67,44 @@ export async function POST(request: Request) {
           .eq("id", ucapanId);
       }
 
+      const { data: ucapan } = await admin
+        .from("ucapan")
+        .select("template_slug, from_name, to_name, email")
+        .eq("id", ucapanId)
+        .maybeSingle();
+
       console.info("[payment-webhook] PAID + DB aktif", { ref: merchantRef, ucapanId });
+
+      if (ucapan?.email) {
+        const { sendPaymentSuccessEmail, sendAdminTransactionEmail } = await import(
+          "@/lib/email"
+        );
+        const successRes = await sendPaymentSuccessEmail({
+          to: ucapan.email,
+          fromName: ucapan.from_name,
+          toName: ucapan.to_name,
+          templateSlug: ucapan.template_slug,
+          ucapanId,
+        });
+        if (!successRes.ok) {
+          console.warn("[payment-webhook] email pembeli gagal", successRes);
+        }
+        const adminEmail = process.env.ADMIN_EMAIL;
+        if (adminEmail) {
+          const adminRes = await sendAdminTransactionEmail({
+            to: adminEmail,
+            fromName: ucapan.from_name,
+            toName: ucapan.to_name,
+            templateSlug: ucapan.template_slug,
+            amount: Number(payload.gross_amount ?? 8900),
+          });
+          if (!adminRes.ok) {
+            console.warn("[payment-webhook] email admin gagal", adminRes);
+          }
+        }
+      } else {
+        console.info("[payment-webhook] tidak ada email pembeli", { ucapanId });
+      }
     } else {
       console.warn("[payment-webhook] PAID tetapi ucapan tidak ditemukan", {
         ref: merchantRef,

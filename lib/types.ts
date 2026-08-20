@@ -32,6 +32,7 @@ export interface UcapanContent {
   message: string;
   photos: string[];
   musicUrl?: string;
+  email?: string;
   createdAt?: number;
 }
 

@@ -383,6 +383,21 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
             {step === 3 && (
               <div className="space-y-5">
                 <h2 className="font-heading text-title-lg text-on-surface">Siap kirim kejutan?</h2>
+                <div>
+                  <label className="block text-label-lg font-semibold text-on-surface mb-1.5">
+                    Email Kamu (untuk notifikasi)
+                  </label>
+                  <input
+                    type="email"
+                    className={inputClass}
+                    placeholder="cth: kamu@gmail.com"
+                    value={content.email ?? ""}
+                    onChange={(e) => set("email", e.target.value)}
+                  />
+                  <p className="text-label-md text-on-surface-variant mt-1.5">
+                    Opsional — untuk menerima link ucapan & konfirmasi pembayaran.
+                  </p>
+                </div>
                 <div className="rounded-2xl bg-surface-container-low p-5 space-y-3">
                   {[
                     ["Template", template.name],
