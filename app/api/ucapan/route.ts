@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isRemote } from "@/lib/supabase/config";
 import { mapUcapanRow, toUcapanRow } from "@/lib/supabase/rows";
 import type { UcapanRow, UcapanStatsRow } from "@/lib/supabase/rows";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,15 @@ export async function GET() {
 export async function POST(request: Request) {
   if (!isRemote()) {
     return NextResponse.json({ ok: false, error: "DEMO_MODE" }, { status: 400 });
+  }
+
+  const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
+  const { success } = checkRateLimit(ip, 5, 60000);
+  if (!success) {
+    return NextResponse.json(
+      { ok: false, error: "RATE_LIMIT_EXCEEDED", message: "Terlalu banyak permintaan. Coba lagi dalam 1 menit." },
+      { status: 429 }
+    );
   }
 
   let body: Record<string, unknown>;
