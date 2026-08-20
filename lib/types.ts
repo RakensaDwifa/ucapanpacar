@@ -24,6 +24,12 @@ export interface TemplateMeta {
   gradient: string;
 }
 
+export interface TimelineItem {
+  date: string;
+  title: string;
+  description?: string;
+}
+
 export interface UcapanContent {
   templateSlug: string;
   toName: string;
@@ -33,6 +39,7 @@ export interface UcapanContent {
   photos: string[];
   musicUrl?: string;
   email?: string;
+  timeline?: TimelineItem[];
   createdAt?: number;
 }
 

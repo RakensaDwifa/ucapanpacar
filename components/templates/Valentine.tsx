@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { TemplateShell, Signature, PhotoGrid } from "./shared";
+import { TemplateShell, Signature, PhotoGrid, TimelineSection } from "./shared";
 import type { TemplateRenderProps } from "@/lib/types";
 
 function HeartEmoji({ className }: { className?: string }) {
@@ -101,6 +101,7 @@ export default function Valentine({ content, preview }: TemplateRenderProps) {
                 <Signature fromName={content.fromName} />
               </div>
               <PhotoGrid photos={content.photos} />
+              <TimelineSection timeline={content.timeline} />
             </div>
           </motion.div>
         )}

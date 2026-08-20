@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { TemplateShell, Signature, PhotoGrid } from "./shared";
+import { TemplateShell, Signature, PhotoGrid, TimelineSection } from "./shared";
 import type { TemplateRenderProps } from "@/lib/types";
 
 const PLEAD_TEXTS = [
@@ -89,6 +89,7 @@ export default function PermintaanMaaf({ content, preview }: TemplateRenderProps
               <Signature fromName={content.fromName} />
             </div>
             <PhotoGrid photos={content.photos} />
+            <TimelineSection timeline={content.timeline} />
           </motion.div>
         ) : (
           <motion.div

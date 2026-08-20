@@ -377,6 +377,77 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
                     />
                   </div>
                 </div>
+
+                <div className="border-t border-outline-variant/30 pt-6">
+                  <label className="block text-label-lg font-semibold text-on-surface mb-1">
+                    Timeline / Momen Penting (Opsional)
+                  </label>
+                  <p className="text-body-md text-on-surface-variant mb-4">
+                    Tambahkan tanggal dan momen spesial kalian (misal: Kencan Pertama, Jadian).
+                  </p>
+                  <div className="space-y-3">
+                    {(content.timeline ?? []).map((item, i) => (
+                      <div key={i} className="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-label-md font-bold text-primary">Momen #{i + 1}</span>
+                          <button
+                            onClick={() => {
+                              const t = [...(content.timeline ?? [])];
+                              t.splice(i, 1);
+                              set("timeline", t);
+                            }}
+                            className="text-red-500 hover:text-red-700 text-label-md font-semibold"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                        <div className="grid sm:grid-cols-2 gap-3">
+                          <input
+                            className={inputClass}
+                            placeholder="Tanggal (cth: 14 Feb 2024)"
+                            value={item.date}
+                            onChange={(e) => {
+                              const t = [...(content.timeline ?? [])];
+                              t[i] = { ...t[i], date: e.target.value };
+                              set("timeline", t);
+                            }}
+                          />
+                          <input
+                            className={inputClass}
+                            placeholder="Judul Momen (cth: Kencan Pertama)"
+                            value={item.title}
+                            onChange={(e) => {
+                              const t = [...(content.timeline ?? [])];
+                              t[i] = { ...t[i], title: e.target.value };
+                              set("timeline", t);
+                            }}
+                          />
+                        </div>
+                        <input
+                          className={inputClass}
+                          placeholder="Deskripsi singkat (opsional)"
+                          value={item.description ?? ""}
+                          onChange={(e) => {
+                            const t = [...(content.timeline ?? [])];
+                            t[i] = { ...t[i], description: e.target.value };
+                            set("timeline", t);
+                          }}
+                        />
+                      </div>
+                    ))}
+                    <button
+                      onClick={() =>
+                        set("timeline", [
+                          ...(content.timeline ?? []),
+                          { date: "", title: "", description: "" },
+                        ])
+                      }
+                      className="inline-flex items-center gap-2 text-label-lg font-semibold text-primary hover:bg-primary-fixed/30 rounded-full px-4 py-2 transition-colors"
+                    >
+                      <Plus className="h-4 w-4" /> Tambah Momen Timeline
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 

@@ -10,6 +10,7 @@ export interface UcapanRow {
   photos: string[];
   music_url: string | null;
   email: string | null;
+  timeline: any | null;
   paid: boolean;
   paid_at: string | null;
   created_at: string;
@@ -51,6 +52,7 @@ export function mapUcapanRow(
     photos: row.photos ?? [],
     musicUrl: row.music_url ?? undefined,
     email: row.email ?? undefined,
+    timeline: row.timeline ?? undefined,
     paid: row.paid,
     paidAt: row.paid_at ? Date.parse(row.paid_at) : undefined,
     createdAt: Date.parse(row.created_at),
@@ -78,5 +80,6 @@ export function toUcapanRow(content: Partial<UcapanContent>) {
     photos: content.photos ?? [],
     music_url: content.musicUrl ?? null,
     email: content.email?.trim() || null,
+    timeline: content.timeline ?? null,
   };
 }

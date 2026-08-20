@@ -176,3 +176,35 @@ export function OpenButton({ onClick, label = "Buka" }: { onClick: () => void; l
     </motion.button>
   );
 }
+
+export function TimelineSection({ timeline }: { timeline?: { date: string; title: string; description?: string }[] }) {
+  if (!timeline || timeline.length === 0) return null;
+
+  return (
+    <div className="mt-8 pt-8 border-t border-outline-variant/30">
+      <h3 className="font-heading text-title-lg text-primary text-center mb-6">
+        ✨ Perjalanan Cinta Kita ✨
+      </h3>
+      <div className="relative border-l-2 border-primary/30 ml-4 pl-6 space-y-6">
+        {timeline.map((item, index) => (
+          <motion.div
+            key={index}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 + index * 0.1, duration: 0.5 }}
+            className="relative"
+          >
+            <div className="absolute -left-[31px] top-1 w-4 h-4 rounded-full bg-primary border-4 border-white shadow-sm" />
+            <span className="inline-block px-3 py-1 bg-primary-fixed/40 text-primary rounded-full text-label-md font-semibold mb-1">
+              {item.date}
+            </span>
+            <h4 className="font-heading text-title-md text-on-surface">{item.title}</h4>
+            {item.description && (
+              <p className="text-body-md text-on-surface-variant mt-1">{item.description}</p>
+            )}
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
