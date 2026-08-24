@@ -1,24 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Music, Pause, X } from "lucide-react";
+import { Music, Pause, Share2, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UcapanContent } from "@/lib/types";
+import { AnalyticsEvents } from "@/lib/analytics";
 
 const HEART_EMOJIS = ["❤️", "💖", "💕", "🌹", "✨"];
 
-const HEART_PATTERNS = Array.from({ length: 14 }, (_, i) => ({
-  id: i,
-  left: Math.random() * 100,
-  delay: Math.random() * 10,
-  duration: 9 + Math.random() * 8,
-  size: 14 + Math.random() * 22,
-  emoji: HEART_EMOJIS[i % HEART_EMOJIS.length],
-}));
-
 function FloatingHearts({ count = 12 }: { count?: number }) {
-  const hearts = HEART_PATTERNS.slice(0, count);
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => setIsClient(true), []);
+
+  const hearts = useMemo(() => {
+    if (!isClient) {
+      // Server-side: return deterministic defaults to avoid hydration mismatch
+      return Array.from({ length: 14 }, (_, i) => ({
+        id: i,
+        left: (i * 7.14) % 100, // Deterministic spread
+        delay: (i * 0.7) % 10,
+        duration: 9 + (i % 8),
+        size: 14 + (i * 1.5) % 22,
+        emoji: HEART_EMOJIS[i % HEART_EMOJIS.length],
+      })).slice(0, count);
+    }
+
+    // Client-side: generate random patterns
+    return Array.from({ length: 14 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 10,
+      duration: 9 + Math.random() * 8,
+      size: 14 + Math.random() * 22,
+      emoji: HEART_EMOJIS[i % HEART_EMOJIS.length],
+    })).slice(0, count);
+  }, [count, isClient]);
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
@@ -91,6 +108,55 @@ function CloseButton({ href }: { href?: string }) {
   );
 }
 
+/** Tombol bagikan — hanya tampil di halaman publik (/t/...), bukan preview builder. */
+function ShareCardButton() {
+  const [status, setStatus] = useState<"hidden" | "ready" | "copied">("hidden");
+
+  useEffect(() => {
+    if (window.location.pathname.startsWith("/t/")) {
+      setStatus("ready");
+    }
+  }, []);
+
+  if (status === "hidden") return null;
+
+  const share = async () => {
+    const url = window.location.href;
+    const nav = navigator as Navigator & {
+      share?: (data: { title?: string; text?: string; url?: string }) => Promise<void>;
+    };
+    if (typeof nav.share === "function") {
+      try {
+        await nav.share({ title: document.title, url });
+        AnalyticsEvents.shareClicked("unknown", "native");
+        return;
+      } catch (err) {
+        // User membatalkan share sheet — bukan error
+        if ((err as Error)?.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      AnalyticsEvents.shareClicked("unknown", "clipboard");
+      setStatus("copied");
+      setTimeout(() => setStatus("ready"), 2000);
+    } catch {
+      // ignore
+    }
+  };
+
+  return (
+    <button
+      onClick={() => void share()}
+      aria-label="Bagikan ucapan"
+      title="Bagikan"
+      className="fixed top-16 right-5 z-50 flex items-center justify-center rounded-full bg-white/85 backdrop-blur-md border border-outline-variant/40 text-primary shadow-lg w-11 h-11 hover:scale-105 transition-transform"
+    >
+      {status === "copied" ? <Check className="h-5 w-5 text-green-600" /> : <Share2 className="h-5 w-5" />}
+    </button>
+  );
+}
+
 interface ShellProps {
   content: UcapanContent;
   children: React.ReactNode;
@@ -109,6 +175,7 @@ export function TemplateShell({ content, children, className, closeHref }: Shell
       <FloatingHearts />
       <MusicToggle content={content} />
       <CloseButton href={closeHref} />
+      <ShareCardButton />
       <div className="relative z-10 w-full max-w-xl px-5 py-16">{children}</div>
     </div>
   );

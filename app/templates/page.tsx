@@ -1,9 +1,11 @@
-import Link from "next/link";
+﻿import { Metadata } from "next";
 import { ArrowRight } from "lucide-react";
+import Link from "next/link";
 import { getActiveTemplates, templateEmoji } from "@/lib/templates";
 import { CATEGORY_META } from "@/lib/types";
+import TemplatesClient from "./TemplatesClient";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Pilih Template",
   description:
     "Jelajahi semua template ucapan romantis. Pilih template favoritmu dan buat kejutan spesial sekarang.",
@@ -11,18 +13,26 @@ export const metadata = {
 
 export const dynamic = "force-dynamic";
 
+async function getTemplatesData() {
+  return {
+    activeCats: Object.values(CATEGORY_META).filter((c) => c.active),
+    templates: getActiveTemplates(),
+  };
+}
+
 export default async function TemplatesPage({
   searchParams,
 }: {
   searchParams: Promise<{ kategori?: string }>;
 }) {
   const { kategori } = await searchParams;
+  const kategoriParam = kategori || null;
   const activeCats = Object.values(CATEGORY_META).filter((c) => c.active);
   const templates = getActiveTemplates();
-  const filtered = kategori
+  const filtered = kategoriParam
     ? templates.filter(
         (t) =>
-          CATEGORY_META[t.type].label.toLowerCase().replace(" ", "-") === kategori
+          CATEGORY_META[t.type].label.toLowerCase().replace(" ", "-") === kategoriParam
       )
     : templates;
 
@@ -43,26 +53,30 @@ export default async function TemplatesPage({
           <Link
             href="/templates"
             className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-label-md font-semibold transition-all ${
-              !kategori
+              !kategoriParam
                 ? "bg-primary text-white shadow-md"
                 : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container"
             }`}
           >
             <span>✨</span> Semua
           </Link>
-          {activeCats.map((cat) => (
-            <Link
-              key={cat.label}
-              href={`/templates?kategori=${cat.label.toLowerCase().replace(" ", "-")}`}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-label-md font-semibold transition-all ${
-                kategori === cat.label.toLowerCase().replace(" ", "-")
-                  ? "bg-primary text-white shadow-md"
-                  : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container"
+          {Object.values(CATEGORY_META)
+            .filter((c) => c.active)
+            .map((cat) => {
+              return (
+                <Link
+                  key={cat.label}
+                  href={`/templates?kategori=${cat.label.toLowerCase().replace(" ", "-")}`}
+                  className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-label-md font-semibold transition-all ${
+                    kategoriParam === cat.label.toLowerCase().replace(" ", "-")
+                      ? "bg-primary text-white shadow-md"
+                      : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container"
               }`}
-            >
-              <span>{cat.emoji}</span> {cat.label}
-            </Link>
-          ))}
+              >
+                <span>{cat.emoji}</span> {cat.label}
+              </Link>
+            );
+          })}
         </div>
 
         {filtered.length === 0 ? (
@@ -70,40 +84,11 @@ export default async function TemplatesPage({
             Belum ada template di kategori ini. Coba kategori lain ya!
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filtered.map((t) => (
-              <Link
-                key={t.slug}
-                href={`/buat/${t.slug}`}
-                className="group bg-white rounded-3xl overflow-hidden shadow-card border border-outline-variant/20 hover:-translate-y-1.5 hover:shadow-card-hover transition-all duration-300"
-              >
-                <div
-                  className={`relative h-48 bg-gradient-to-br ${t.gradient} flex items-center justify-center`}
-                >
-                  <span className="text-8xl drop-shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    {templateEmoji(t.slug)}
-                  </span>
-                  <span className="absolute top-3 right-3 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1 text-label-md font-semibold text-on-surface-variant">
-                    {CATEGORY_META[t.type].emoji} {CATEGORY_META[t.type].label}
-                  </span>
-                </div>
-                <div className="p-6">
-                  <h2 className="font-heading text-xl text-on-surface mb-1.5">{t.name}</h2>
-                  <p className="text-body-md text-on-surface-variant mb-4 min-h-[40px]">
-                    {t.description}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center gap-1.5 text-label-lg font-semibold text-primary">
-                      Buat Sekarang <ArrowRight className="h-4 w-4" />
-                    </span>
-                    <span className="text-label-md font-semibold bg-primary-fixed/30 text-primary px-3 py-1 rounded-full">
-                      Rp 8.900
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+          <TemplatesClient
+            filtered={filtered}
+            templates={templates}
+            kategori={kategoriParam}
+          />
         )}
       </div>
     </section>

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-dm-serif), Georgia, serif;
@@ -78,4 +80,42 @@ body {
   background: var(--color-surface);
   color: var(--color-on-surface);
   font-family: var(--font-sans);
+}
+
+/* ---------- DARK MODE ---------- */
+.dark {
+  --color-primary-container: #4d1226;
+  --color-primary-fixed: #5a1830;
+  --color-on-primary-fixed: #ffd9e2;
+  --color-on-primary-fixed-variant: #ffb0c6;
+
+  --color-surface: #171113;
+  --color-on-surface: #f7ecee;
+  --color-surface-container-low: #201819;
+  --color-surface-container: #2a2021;
+  --color-surface-container-high: #35292b;
+  --color-surface-container-highest: #403336;
+  --color-on-surface-variant: #d6c0c4;
+  --color-surface-variant: #403336;
+  --color-outline: #a08e91;
+  --color-outline-variant: #4d3d40;
+}
+
+.dark body {
+  background: var(--color-surface);
+  color: var(--color-on-surface);
+}
+
+/* Kartu-kartu yang memakai bg-white hardcode ikut gelap */
+.dark .bg-white {
+  background-color: var(--color-surface-container-low);
+}
+
+.dark .text-gray-600,
+.dark .text-gray-500 {
+  color: var(--color-on-surface-variant);
+}
+
+.dark .shadow-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.28);
 }

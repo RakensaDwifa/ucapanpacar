@@ -11,6 +11,7 @@
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
+    "@vercel/analytics": "^2.0.1",
     "framer-motion": "^13.1.0",
     "lucide-react": "^1.31.0",
     "next": "16.3.1",
@@ -18,7 +19,8 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "resend": "^6.20.0",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "sonner": "^2.0.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

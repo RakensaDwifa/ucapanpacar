@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRight,
   Check,
+  CloudUpload,
   ImagePlus,
   Loader2,
   Music,
   Plus,
+  Redo2,
+  Undo2,
   Upload,
   X,
 } from "lucide-react";
@@ -22,8 +25,23 @@ import { createClient } from "@/lib/supabase/client";
 import { isRemote, supabaseUrl } from "@/lib/supabase/config";
 import { compressImage } from "@/lib/image";
 import TemplateRenderer from "@/components/templates/registry";
+import { toast } from "sonner";
+import {
+  saveDraftRemote,
+  getDraftRemote,
+  clearDraftRemote,
+  markLocalSaved,
+  getLocalSavedAt,
+} from "@/lib/drafts";
+import type { SyncStatus } from "@/lib/drafts";
+import { useContentHistory } from "@/lib/history";
+import { useKeyboardShortcuts } from "@/lib/shortcuts";
+import ShortcutsHelpModal from "@/components/ui/shortcuts-help";
+import { trackEvent, AnalyticsEvents } from "@/lib/analytics";
 
 const STEPS = ["Identitas", "Pesan", "Galeri & Musik", "Bayar"];
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function BuilderPage({ slug, editId }: { slug: string; editId?: string }) {
   const template = getTemplate(slug);
@@ -48,12 +66,75 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [saveError, setSaveError] = useState("");
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [previewMode, setPreviewMode] = useState<"mobile" | "desktop">("mobile");
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("up_preview_mode");
+      if (stored === "mobile" || stored === "desktop") setPreviewMode(stored);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const switchPreviewMode = useCallback((mode: "mobile" | "desktop") => {
+    setPreviewMode(mode);
+    try {
+      window.localStorage.setItem("up_preview_mode", mode);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const remoteSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!template) return;
     saveDraft(slug, content);
+    markLocalSaved(slug);
+
+    if (!isRemote()) return;
+    setSyncStatus("saving");
+    if (remoteSaveTimer.current) clearTimeout(remoteSaveTimer.current);
+    remoteSaveTimer.current = setTimeout(async () => {
+      const result = await saveDraftRemote(content);
+      setSyncStatus(
+        result === "ok" ? "saved" : result === "skipped" ? "idle" : "error"
+      );
+    }, 3000);
+    return () => {
+      if (remoteSaveTimer.current) clearTimeout(remoteSaveTimer.current);
+    };
   }, [content, slug, template]);
+
+  // Restore draft remote saat pertama kali buka builder (bukan mode edit)
+  useEffect(() => {
+    if (!isRemote() || editId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [remote, localAt] = await Promise.all([
+          getDraftRemote(slug),
+          Promise.resolve(getLocalSavedAt(slug)),
+        ]);
+        if (cancelled || !remote) return;
+        // Hanya pakai remote jika lebih baru dari lokal
+        if (remote.updatedAt > localAt) {
+          setContent((c) => fillContentDefaults({ ...remote.content, ...c, templateSlug: slug }));
+          markRestored();
+          toast.info("Draft tersinkron dari perangkat lain dipulihkan");
+        }
+      } catch {
+        // silent — fallback ke draft lokal
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
 
   useEffect(() => {
     if (!editId || !isRemote()) return;
@@ -63,6 +144,7 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
         const json = await r.json();
         if (!cancelled && json.ok && json.ucapan) {
           setContent(fillContentDefaults(json.ucapan));
+          markRestored();
         }
       })
       .catch(() => undefined);
@@ -72,6 +154,47 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
   }, [editId]);
 
   const previewContent = useMemo(() => fillContentDefaults(content), [content]);
+
+  const applyContent = useCallback(
+    (next: Partial<UcapanContent>) => setContent(next),
+    []
+  );
+  const { canUndo, canRedo, undo, redo, markRestored } =
+    useContentHistory<Partial<UcapanContent>>(content, applyContent);
+
+  // Ref ke aksi builder — diisi setelah fungsi-fungsi didefinisikan (di bawah).
+  const actionsRef = useRef<{
+    undo: () => void;
+    redo: () => void;
+    next: () => void;
+    prev: () => void;
+    save: () => void;
+    gotoStep: (i: number) => void;
+  }>({
+    undo: () => {},
+    redo: () => {},
+    next: () => {},
+    prev: () => {},
+    save: () => {},
+    gotoStep: () => {},
+  });
+
+  useKeyboardShortcuts(
+    {
+      "ctrl+z": () => actionsRef.current.undo(),
+      "ctrl+shift+z": () => actionsRef.current.redo(),
+      "ctrl+y": () => actionsRef.current.redo(),
+      "ctrl+s": () => actionsRef.current.save(),
+      "ctrl+enter": () => actionsRef.current.next(),
+      escape: () => actionsRef.current.prev(),
+      "alt+1": () => actionsRef.current.gotoStep(0),
+      "alt+2": () => actionsRef.current.gotoStep(1),
+      "alt+3": () => actionsRef.current.gotoStep(2),
+      "alt+4": () => actionsRef.current.gotoStep(3),
+      "?": () => setShowShortcuts(true),
+      "shift+?": () => setShowShortcuts(true),
+    }
+  );
 
   if (!template) {
     return (
@@ -84,18 +207,41 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
     );
   }
 
-  const canNext = step === 0 ? Boolean(content.toName?.trim()) : step === 1 ? Boolean(content.message?.trim()) : true;
+  const isValidEmail = useCallback((email: string) => EMAIL_REGEX.test(email.trim()), []);
+
+  const canNext = step === 0
+    ? Boolean(content.toName?.trim() && content.email?.trim() && isValidEmail(content.email))
+    : step === 1
+      ? Boolean(content.message?.trim())
+      : true;
 
   const set = <K extends keyof UcapanContent>(key: K, value: UcapanContent[K]) =>
     setContent((c) => ({ ...c, [key]: value }));
 
-  const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
-  const prev = () => setStep((s) => Math.max(s - 1, 0));
+  const next = () => {
+    AnalyticsEvents.builderStepCompleted(step, slug);
+    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  };
+  const prev = () => {
+    AnalyticsEvents.builderStepCompleted(step, slug);
+    setStep((s) => Math.max(s - 1, 0));
+  };
+
+  actionsRef.current.undo = undo;
+  actionsRef.current.redo = redo;
+  actionsRef.current.next = () => {
+    if (!canNext) return;
+    next();
+  };
+  actionsRef.current.prev = prev;
+  // Lompat langkah hanya ke belakang (konsisten dengan progress pills)
+  actionsRef.current.gotoStep = (i: number) => {
+    if (i >= 0 && i < STEPS.length && i < step) setStep(i);
+  };
 
   const uploadPhotos = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setUploading(true);
-    setSaveError("");
     try {
       const supabase = createClient();
       for (const file of Array.from(files)) {
@@ -109,16 +255,17 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
         const url = `${supabaseUrl()}/storage/v1/object/public/foto/${path}`;
         set("photos", [...(content.photos ?? []), url]);
       }
+      toast.success("Foto berhasil diunggah");
     } catch {
-      setSaveError("Gagal mengunggah foto. Coba lagi ya.");
+      toast.error("Gagal mengunggah foto. Coba lagi ya.");
     } finally {
       setUploading(false);
     }
   };
 
   const goToPayment = async () => {
+    AnalyticsEvents.paymentStarted(slug, 8900);
     setSaving(true);
-    setSaveError("");
     try {
       if (isRemote()) {
         const full = fillContentDefaults(content);
@@ -136,7 +283,7 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
         }
         const json = await res.json();
         if (!json.ok) {
-          setSaveError(
+          toast.error(
             json.error === "EDIT_WINDOW_EXPIRED"
               ? "Masa edit 7 hari sudah habis."
               : "Gagal menyimpan ucapan. Coba lagi ya."
@@ -144,6 +291,7 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
           return;
         }
         saveDraft(slug, content);
+        void clearDraftRemote(slug);
         router.push(`/checkout/${json.id ?? editId}`);
       } else {
         const id = editId ?? makeUcapanId();
@@ -156,9 +304,15 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
         });
         router.push(`/checkout/${id}`);
       }
+    } catch {
+      toast.error("Terjadi kesalahan. Coba lagi ya.");
     } finally {
       setSaving(false);
     }
+  };
+
+  actionsRef.current.save = () => {
+    if (!saving) void goToPayment();
   };
 
   const inputClass =
@@ -178,9 +332,38 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
           <h1 className="font-heading text-headline-md text-primary">
             Buat Ucapan — {template.name}
           </h1>
-          <span className="text-label-lg font-bold text-primary bg-primary-fixed/40 px-4 py-1.5 rounded-full">
-            Rp 8.900
-          </span>
+          <div className="flex items-center gap-3">
+            {isRemote() && (
+              <span
+                className={`hidden sm:inline-flex items-center gap-1.5 text-label-md font-semibold px-3 py-1.5 rounded-full transition-colors ${
+                  syncStatus === "saving"
+                    ? "text-on-surface-variant bg-surface-container-low"
+                    : syncStatus === "saved"
+                      ? "text-green-700 bg-green-50"
+                      : syncStatus === "error"
+                        ? "text-red-600 bg-red-50"
+                        : ""
+                }`}
+                role="status"
+                aria-live="polite"
+              >
+                {syncStatus === "saving" && (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Menyimpan…
+                  </>
+                )}
+                {syncStatus === "saved" && (
+                  <>
+                    <CloudUpload className="h-3.5 w-3.5" /> Tersimpan otomatis
+                  </>
+                )}
+                {syncStatus === "error" && <>⚠️ Sinkron gagal</>}
+              </span>
+            )}
+            <span className="text-label-lg font-bold text-primary bg-primary-fixed/40 px-4 py-1.5 rounded-full">
+              Rp 8.900
+            </span>
+          </div>
         </div>
 
         {/* progress */}
@@ -209,6 +392,36 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
               )}
             </div>
           ))}
+        </div>
+
+        {/* undo/redo toolbar */}
+        <div className="flex items-center justify-end gap-2 mb-4">
+          <button
+            onClick={undo}
+            disabled={!canUndo}
+            aria-label="Undo"
+            title="Undo (Ctrl+Z)"
+            className="p-2.5 rounded-full bg-surface-container-low text-on-surface hover:bg-surface-container transition-colors disabled:opacity-40 disabled:hover:bg-surface-container-low"
+          >
+            <Undo2 className="h-4 w-4" />
+          </button>
+          <button
+            onClick={redo}
+            disabled={!canRedo}
+            aria-label="Redo"
+            title="Redo (Ctrl+Shift+Z)"
+            className="p-2.5 rounded-full bg-surface-container-low text-on-surface hover:bg-surface-container transition-colors disabled:opacity-40 disabled:hover:bg-surface-container-low"
+          >
+            <Redo2 className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setShowShortcuts(true)}
+            aria-label="Keyboard shortcuts"
+            title="Keyboard shortcuts (?)"
+            className="px-3 py-2.5 rounded-full bg-surface-container-low text-label-md font-semibold text-on-surface hover:bg-surface-container transition-colors"
+          >
+            ⌨️ Shortcuts
+          </button>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
@@ -248,6 +461,25 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
                     placeholder="cth: Untuk Kamu"
                     value={content.title ?? ""}
                     onChange={(e) => set("title", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-label-lg font-semibold text-on-surface mb-1.5">
+                    Email Kamu (untuk notifikasi) *
+                  </label>
+                  <input
+                    type="email"
+                    className={inputClass}
+                    placeholder="cth: kamu@gmail.com"
+                    value={content.email ?? ""}
+                    onChange={(e) => set("email", e.target.value)}
+                    onBlur={(e) => {
+                      const email = e.target.value;
+                      if (email && !isValidEmail(email)) {
+                        toast.error("Format email tidak valid");
+                      }
+                    }}
+                    required
                   />
                 </div>
               </div>
@@ -458,15 +690,11 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
                   <label className="block text-label-lg font-semibold text-on-surface mb-1.5">
                     Email Kamu (untuk notifikasi)
                   </label>
-                  <input
-                    type="email"
-                    className={inputClass}
-                    placeholder="cth: kamu@gmail.com"
-                    value={content.email ?? ""}
-                    onChange={(e) => set("email", e.target.value)}
-                  />
+                  <div className="w-full rounded-2xl border border-outline-variant bg-white px-4 py-3 text-body-md text-on-surface">
+                    {content.email ?? "—"}
+                  </div>
                   <p className="text-label-md text-on-surface-variant mt-1.5">
-                    Opsional — untuk menerima link ucapan & konfirmasi pembayaran.
+                    Digunakan untuk notifikasi link ucapan & konfirmasi pembayaran.
                   </p>
                 </div>
                 <div className="rounded-2xl bg-surface-container-low p-5 space-y-3">
@@ -487,9 +715,6 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
                     </div>
                   ))}
                 </div>
-                {saveError && (
-                  <p className="text-body-md text-red-600">{saveError}</p>
-                )}
                 <p className="text-label-md text-on-surface-variant leading-relaxed">
                   ✅ Link aktif selamanya · ✅ Edit 7 hari setelah bayar · ✅ Bisa dibagikan via
                   link & QR · ✅ Jejak kunjungan real-time
@@ -535,15 +760,41 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
 
           {/* PREVIEW */}
           <div className="lg:sticky lg:top-24 self-start">
-            <p className="text-label-lg font-semibold text-on-surface-variant mb-3 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" /> Live Preview
-            </p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-label-lg font-semibold text-on-surface-variant flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-primary animate-pulse" /> Live Preview
+              </p>
+              <div className="flex items-center rounded-full bg-surface-container-low p-1" role="group" aria-label="Mode preview">
+                {(
+                  [
+                    { mode: "mobile" as const, icon: "📱", label: "Mobile" },
+                    { mode: "desktop" as const, icon: "🖥️", label: "Desktop" },
+                  ]
+                ).map(({ mode, icon, label }) => (
+                  <button
+                    key={mode}
+                    onClick={() => switchPreviewMode(mode)}
+                    aria-pressed={previewMode === mode}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-label-md font-semibold transition-all ${
+                      previewMode === mode
+                        ? "bg-white text-primary shadow-sm"
+                        : "text-on-surface-variant hover:text-on-surface"
+                    }`}
+                  >
+                    <span aria-hidden>{icon}</span>
+                    <span className="hidden sm:inline">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
             <motion.div
               key={step}
               initial={{ opacity: 0.6, scale: 0.99 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.35 }}
-              className="rounded-3xl overflow-hidden border-4 border-white shadow-[0_20px_60px_rgba(217,108,138,0.2)]"
+              className={`rounded-3xl overflow-hidden border-4 border-white shadow-[0_20px_60px_rgba(217,108,138,0.2)] transition-[max-width] duration-300 ${
+                previewMode === "mobile" ? "max-w-[375px] mx-auto" : "max-w-full"
+              }`}
             >
               <div className="h-[560px] overflow-y-auto bg-surface">
                 <TemplateRenderer content={previewContent} preview />
@@ -552,6 +803,7 @@ export default function BuilderPage({ slug, editId }: { slug: string; editId?: s
           </div>
         </div>
       </div>
+      <ShortcutsHelpModal open={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </div>
   );
 }

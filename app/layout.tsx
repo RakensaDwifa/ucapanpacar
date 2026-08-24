@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { DM_Serif_Display, Poppins } from "next/font/google";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
 import FloatingChat from "@/components/landing/FloatingChat";
+import CaptureReferral from "@/components/referral/CaptureReferral";
+import { ToasterWrapper } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/server";
 import { isRemote } from "@/lib/supabase/config";
 
@@ -47,12 +50,28 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang="id" className={`${poppins.variable} ${dmSerif.variable} h-full antialiased`}>
+    <html lang="id" className={`${poppins.variable} ${dmSerif.variable} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#d96c8a" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="UcapanPacar" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("up_theme");var d=t==="dark"||(t===null&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(d)document.documentElement.classList.add("dark");}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <Header userEmail={userEmail} userName={userName} userAvatar={userAvatar} />
         <main className="flex-1">{children}</main>
         <Footer />
         <FloatingChat />
+        <CaptureReferral />
+        <ToasterWrapper />
+        <Analytics />
       </body>
     </html>
   );

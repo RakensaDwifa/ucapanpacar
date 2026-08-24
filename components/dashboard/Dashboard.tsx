@@ -5,14 +5,18 @@ import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import {
   Copy,
+  CopyPlus,
   ExternalLink,
   Eye,
   Heart,
   Pencil,
+  Share2,
   Trash2,
   Wallet,
 } from "lucide-react";
 import { deleteUcapan, getViews, listUcapan } from "@/lib/store";
+import { toast } from "sonner";
+import { AnalyticsEvents } from "@/lib/analytics";
 import type { StoredUcapan, ViewRecord } from "@/lib/store";
 
 const EDIT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
@@ -28,6 +32,7 @@ export default function Dashboard() {
   const [localViews, setLocalViews] = useState<Record<string, ViewRecord>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [openQr, setOpenQr] = useState<string | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [now] = useState(() => Date.now());
 
   useEffect(() => {
@@ -70,15 +75,67 @@ export default function Dashboard() {
     setUcapans((list) => list.filter((u) => u.id !== id));
   };
 
+  const duplicate = async (id: string) => {
+    if (demo) {
+      toast.info("Duplikat tersedia saat terhubung ke Supabase");
+      return;
+    }
+    setDuplicatingId(id);
+    try {
+      const res = await fetch("/api/ucapan/clone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        toast.error("Gagal menduplikat ucapan. Coba lagi ya.");
+        return;
+      }
+      toast.success("Kartu berhasil diduplikat");
+      // Refresh list dari server
+      const refreshed = await fetch("/api/ucapan");
+      const rjson = await refreshed.json();
+      if (rjson.ok) setUcapans(rjson.ucapans ?? []);
+    } catch {
+      toast.error("Terjadi kesalahan. Coba lagi ya.");
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
+
   const copyLink = async (id: string) => {
     const url = `${window.location.origin}/t/${id.slice(0, 8)}/${id}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
+      AnalyticsEvents.shareClicked("unknown", "clipboard");
     } catch {
       // abaikan
     }
+  };
+
+  const shareCard = async (u: (typeof ucapans)[number]) => {
+    const url = `${window.location.origin}/t/${u.id.slice(0, 8)}/${u.id}`;
+    const nav = navigator as Navigator & {
+      share?: (data: { title?: string; text?: string; url?: string }) => Promise<void>;
+    };
+    if (typeof nav.share === "function") {
+      try {
+        await nav.share({
+          title: u.title || "Untuk Kamu",
+          text: `Sebuah kejutan untuk ${u.toName} 💝`,
+          url,
+        });
+        AnalyticsEvents.shareClicked(u.templateSlug, "native");
+        return;
+      } catch (err) {
+        if ((err as Error)?.name === "AbortError") return;
+      }
+    }
+    await copyLink(u.id);
+    AnalyticsEvents.shareClicked(u.templateSlug, "clipboard");
   };
 
   const viewOf = (u: RemoteUcapan) =>
@@ -194,10 +251,27 @@ export default function Dashboard() {
                         {copiedId === u.id ? "Tersalin!" : "Salin Link"}
                       </button>
                       <button
+                        onClick={() => void shareCard(u)}
+                        aria-label="Bagikan"
+                        title="Bagikan"
+                        className="p-2.5 rounded-full bg-surface-container-low text-on-surface hover:bg-surface-container transition-colors"
+                      >
+                        <Share2 className="h-4 w-4" />
+                      </button>
+                      <button
                         onClick={() => setOpenQr(qr ? null : u.id)}
                         className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-label-md font-semibold bg-surface-container-low text-on-surface hover:bg-surface-container transition-colors"
                       >
                         QR
+                      </button>
+                      <button
+                        onClick={() => void duplicate(u.id)}
+                        disabled={duplicatingId === u.id}
+                        aria-label="Duplikat ucapan"
+                        title="Duplikat ucapan ini"
+                        className="p-2.5 rounded-full bg-surface-container-low text-on-surface hover:bg-surface-container transition-colors disabled:opacity-50"
+                      >
+                        <CopyPlus className="h-4 w-4" />
                       </button>
                       {u.paid && (
                         <a

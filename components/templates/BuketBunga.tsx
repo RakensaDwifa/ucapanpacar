@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { TemplateShell, Signature, PhotoGrid, OpenButton, TimelineSection } from "./shared";
 import type { TemplateRenderProps } from "@/lib/types";
@@ -14,15 +14,28 @@ const FLOWERS = [
   { emoji: "💐", x: 0, y: -60, delay: 0.85, size: 34 },
 ];
 
-const CONFETTI = Array.from({ length: 8 }, (_, i) => ({
-  left: 20 + Math.random() * 60,
-  top: -30 + i * 4,
-  y: -90 - Math.random() * 60,
-}));
-
 export default function BuketBunga({ content, preview }: TemplateRenderProps) {
   const [assembled, setAssembled] = useState(Boolean(preview));
   const [revealed, setRevealed] = useState(Boolean(preview));
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => setIsClient(true), []);
+
+  const confetti = useMemo(() => {
+    if (!isClient) {
+      // Server-side: deterministic defaults
+      return Array.from({ length: 8 }, (_, i) => ({
+        left: 20 + (i * 7.5) % 60,
+        top: -30 + i * 4,
+        y: -90 - (i * 7.5) % 60,
+      }));
+    }
+    // Client-side: random
+    return Array.from({ length: 8 }, (_, i) => ({
+      left: 20 + Math.random() * 60,
+      top: -30 + i * 4,
+      y: -90 - Math.random() * 60,
+    }));
+  }, [isClient]);
 
   const start = () => {
     if (assembled) return;
@@ -112,7 +125,7 @@ export default function BuketBunga({ content, preview }: TemplateRenderProps) {
                   transition={{ type: "spring", bounce: 0.4, delay: 0.15 }}
                   className="bg-white rounded-3xl border border-outline-variant/30 shadow-card p-8"
                 >
-                  {CONFETTI.map((c, i) => (
+                  {confetti.map((c: { left: number; top: number; y: number }, i) => (
                     <motion.span
                       key={i}
                       className="absolute text-2xl pointer-events-none"

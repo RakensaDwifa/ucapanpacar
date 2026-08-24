@@ -81,6 +81,35 @@ export async function sendPaymentSuccessEmail(input: {
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
+export async function sendAbandonedCartEmail(input: {
+  to: string;
+  fromName: string;
+  toName: string;
+  templateSlug: string;
+  ucapanId: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const client = resend();
+  if (!client) return { ok: false, error: "RESEND_NOT_CONFIGURED" };
+
+  const url = `${appBaseUrl()}/checkout/${input.ucapanId}`;
+  const html = layout(
+    "Kejutanmu belum selesai 💝",
+    `<p style="margin:0 0 12px;line-height:1.7;">Hai <b>${input.fromName}</b>,</p>
+     <p style="margin:0 0 12px;line-height:1.7;">Ucapan spesial untuk <b>${input.toName}</b> sudah hampir jadi — tinggal satu langkah pembayaran dan kejutanmu siap dikirim.</p>
+     <p style="margin:0 0 12px;line-height:1.7;">Link-nya masih menunggumu. Jangan sampai dia kehabisan momen spesial ya 😉</p>
+     ${ctaButton(url, "Selesaikan Kejutanmu 💝")}
+     <p style="margin:0;line-height:1.7;font-size:13px;color:#b07a88;">Atau buka link ini: <a href="${url}" style="color:#d96c8a;">${url}</a></p>`
+  );
+
+  const { error } = await client.emails.send({
+    from: FROM,
+    to: [input.to],
+    subject: `Kejutanmu untuk ${input.toName} belum selesai 💝`,
+    html,
+  });
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
 export async function sendAdminTransactionEmail(input: {
   to: string;
   fromName: string;

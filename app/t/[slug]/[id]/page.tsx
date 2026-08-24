@@ -10,7 +10,7 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string; id: string }>;
 }): Promise<Metadata> {
-  const { id } = await params;
+  const { slug, id } = await params;
   let toName = "Kamu";
   let fromName = "Seseorang";
   let message = "";
@@ -35,13 +35,34 @@ export async function generateMetadata({
   }
 
   const teaser = message.trim().split(/\s+/).slice(0, 18).join(" ");
+  const title = `Untuk ${toName} 💌 — dari ${fromName}`;
+  const description =
+    teaser.length > 0
+      ? `Seseorang membuatkan ucapan spesial untukmu: "${teaser}${teaser.endsWith(".") ? "" : "…"}"`
+      : "Seseorang membuatkan ucapan spesial untukmu.";
+
+  // OG image via file-convention opengraph-image.tsx (otomatis oleh Next.js)
 
   return {
-    title: `Untuk ${toName} 💌 — dari ${fromName}`,
-    description:
-      teaser.length > 0
-        ? `Seseorang membuatkan ucapan spesial untukmu: "${teaser}${teaser.endsWith(".") ? "" : "…"}"`
-        : "Seseorang membuatkan ucapan spesial untukmu.",
+    title,
+    description,
+    alternates: {
+      canonical: `/t/${slug}/${id}`,
+    },
+    // Konten personal: jangan diindex mesin pencari, tapi preview share tetap jalan
+    robots: { index: false, follow: false },
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      siteName: "UcapanPacar",
+      locale: "id_ID",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
   };
 }
 

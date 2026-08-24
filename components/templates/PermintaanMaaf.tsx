@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { TemplateShell, Signature, PhotoGrid, TimelineSection } from "./shared";
 import type { TemplateRenderProps } from "@/lib/types";
@@ -18,9 +18,22 @@ export default function PermintaanMaaf({ content, preview }: TemplateRenderProps
   const [forgiven, setForgiven] = useState(Boolean(preview));
   const [attempts, setAttempts] = useState(0);
   const [runawayPos, setRunawayPos] = useState({ x: 0, y: 0 });
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => setIsClient(true), []);
+
+  const initialRunawayPos = useMemo(() => {
+    if (!isClient) {
+      return { x: 0, y: 0 };
+    }
+    return {
+      x: (Math.random() - 0.5) * 160,
+      y: (Math.random() - 0.5) * 120,
+    };
+  }, [isClient]);
 
   const runaway = () => {
     setAttempts((n) => n + 1);
+    if (!isClient) return;
     setRunawayPos({
       x: (Math.random() - 0.5) * 160,
       y: (Math.random() - 0.5) * 120,

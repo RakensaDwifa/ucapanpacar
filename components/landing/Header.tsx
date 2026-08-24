@@ -3,8 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, Menu, X } from "lucide-react";
+import { Gift, LogOut, Menu, X } from "lucide-react";
 import Logo from "./Logo";
+import ThemeToggle from "@/components/ui/theme-toggle";
 import { createClient } from "@/lib/supabase/client";
 import { isRemote } from "@/lib/supabase/config";
 
@@ -64,6 +65,12 @@ export default function Header({
       >
         Dashboard
       </Link>
+      <Link
+        href="/dashboard/referral"
+        className="inline-flex items-center gap-1.5 text-body-md font-semibold text-gray-600 hover:text-primary transition-colors"
+      >
+        <Gift className="h-4 w-4" /> Referral
+      </Link>
       <button
         onClick={logout}
         className="inline-flex items-center gap-1.5 text-body-md font-semibold text-gray-500 hover:text-red-500 transition-colors"
@@ -90,7 +97,7 @@ export default function Header({
           ))}
         </nav>
 
-        <div className="hidden lg:flex items-center gap-6">
+        <div className="hidden lg:flex items-center gap-4">
           {userEmail ? (
             userInfo
           ) : (
@@ -101,6 +108,7 @@ export default function Header({
               Masuk
             </Link>
           )}
+          <ThemeToggle />
           <Link
             href="/templates"
             className="inline-flex items-center justify-center px-8 py-3.5 bg-primary text-white text-body-md font-semibold rounded-full shadow-[0_4px_14px_0_rgba(217,108,138,0.39)] hover:shadow-[0_6px_20px_rgba(217,108,138,0.23)] hover:-translate-y-0.5 transition-all duration-200"
@@ -109,13 +117,16 @@ export default function Header({
           </Link>
         </div>
 
-        <button
-          className="lg:hidden text-on-surface p-2"
-          aria-label="Toggle menu"
-          onClick={() => setOpen((v) => !v)}
-        >
-          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
+        <div className="flex lg:hidden items-center gap-1">
+          <ThemeToggle />
+          <button
+            className="text-on-surface p-2"
+            aria-label="Toggle menu"
+            onClick={() => setOpen((v) => !v)}
+          >
+            {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
+        </div>
       </div>
 
       {open && (
@@ -155,6 +166,13 @@ export default function Header({
                   className="text-body-md font-semibold text-gray-600 hover:text-primary transition-colors"
                 >
                   Dashboard
+                </Link>
+                <Link
+                  href="/dashboard/referral"
+                  onClick={() => setOpen(false)}
+                  className="inline-flex items-center gap-1.5 text-body-md font-semibold text-gray-600 hover:text-primary transition-colors"
+                >
+                  <Gift className="h-4 w-4" /> Referral
                 </Link>
                 <button
                   onClick={() => {

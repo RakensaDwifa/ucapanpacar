@@ -67,13 +67,34 @@ export async function POST(request: Request) {
           .eq("id", ucapanId);
       }
 
+      // Tandai sesi recovery selesai jika ada
+      try {
+        await admin
+          .from("checkout_sessions")
+          .update({ recovered_at: now })
+          .eq("ucapan_id", ucapanId)
+          .is("recovered_at", null);
+      } catch {
+        // non-blocking
+      }
+
       const { data: ucapan } = await admin
         .from("ucapan")
-        .select("template_slug, from_name, to_name, email")
+        .select("template_slug, from_name, to_name, email, owner_id")
         .eq("id", ucapanId)
         .maybeSingle();
 
       console.info("[payment-webhook] PAID + DB aktif", { ref: merchantRef, ucapanId });
+
+      // Selesaikan referral pending milik pembeli (jika login & pakai kode referral)
+      if (ucapan?.owner_id) {
+        try {
+          const { completePendingReferrals } = await import("@/lib/referral");
+          await completePendingReferrals(ucapan.owner_id);
+        } catch {
+          // non-blocking
+        }
+      }
 
       if (ucapan?.email) {
         const { sendPaymentSuccessEmail, sendAdminTransactionEmail } = await import(
@@ -116,6 +137,37 @@ export async function POST(request: Request) {
       status: transactionStatus,
       statusCode,
     });
+
+    // Catat sesi checkout untuk abandoned-cart recovery
+    if (transactionStatus === "pending" && isRemote() && merchantRef.startsWith("UP-")) {
+      try {
+        const { createAdminClient } = await import("@/lib/supabase/admin");
+        const admin = createAdminClient();
+        const id8 = merchantRef.slice(3, 11);
+        const { data: u } = await admin
+          .from("ucapan")
+          .select("id,email")
+          .like("id", `${id8}%`)
+          .maybeSingle();
+        if (u?.id) {
+          const { data: existing } = await admin
+            .from("checkout_sessions")
+            .select("id")
+            .eq("ucapan_id", u.id)
+            .limit(1)
+            .maybeSingle();
+          if (!existing) {
+            await admin.from("checkout_sessions").insert({
+              ucapan_id: u.id,
+              email: u.email ?? null,
+              started_at: now,
+            });
+          }
+        }
+      } catch {
+        // non-blocking — jangan gagalkan webhook
+      }
+    }
   }
 
   return NextResponse.json({ success: true });

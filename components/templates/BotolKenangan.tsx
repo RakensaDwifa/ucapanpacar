@@ -1,18 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { TemplateShell, Signature, PhotoGrid, TimelineSection } from "./shared";
 import type { TemplateRenderProps } from "@/lib/types";
 
-const SPLASH_PARTICLES = Array.from({ length: 14 }).map(() => ({
-  left: 10 + Math.random() * 80,
-  y: -80 - Math.random() * 120,
-}));
-
 export default function BotolKenangan({ content, preview }: TemplateRenderProps) {
   const [broken, setBroken] = useState(Boolean(preview));
   const [shaking, setShaking] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => setIsClient(true), []);
+
+  const splashParticles = useMemo(() => {
+    if (!isClient) {
+      return Array.from({ length: 14 }, (_, i) => ({
+        left: 10 + (i * 5) % 80,
+        y: -80 - (i * 8.5) % 120,
+      }));
+    }
+    return Array.from({ length: 14 }, () => ({
+      left: 10 + Math.random() * 80,
+      y: -80 - Math.random() * 120,
+    }));
+  }, [isClient]);
 
   const smash = () => {
     if (broken) return;
@@ -77,7 +87,7 @@ export default function BotolKenangan({ content, preview }: TemplateRenderProps)
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
               >
-                {SPLASH_PARTICLES.map((p, i) => (
+                {splashParticles.map((p, i) => (
                   <motion.span
                     key={i}
                     className="absolute text-3xl"

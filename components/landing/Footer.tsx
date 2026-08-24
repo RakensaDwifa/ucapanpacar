@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Camera, Heart, Music } from "lucide-react";
 import Logo from "./Logo";
+import NewsletterSignup from "./NewsletterSignup";
 
 const LINKS = [
   { label: "Kebijakan Privasi", href: "/kebijakan-privasi" },
@@ -21,6 +22,10 @@ export default function Footer() {
           >
             Buat kejutan serupa
           </Link>
+        </div>
+
+        <div className="bg-white rounded-3xl shadow-card p-6 md:p-7 w-full max-w-md">
+          <NewsletterSignup />
         </div>
 
         <div className="flex flex-wrap justify-center gap-6">
