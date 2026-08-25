@@ -18,12 +18,20 @@ export default function TemplatesClient({
   kategori: string | null;
 }) {
   const [mounted, setMounted] = useState(false);
+  const searchParams = useSearchParams();
+  const currentKategori = searchParams.get("kategori");
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const activeCats = Object.values(CATEGORY_META).filter((c) => c.active);
+  const filteredTemplates = currentKategori
+    ? templates.filter(
+        (t) =>
+          CATEGORY_META[t.type].label.toLowerCase().replace(" ", "-") === currentKategori
+      )
+    : templates;
 
   if (!mounted) {
     return (
@@ -44,17 +52,6 @@ export default function TemplatesClient({
       </div>
     );
   }
-
-  if (!mounted) return null;
-
-  const searchParams = useSearchParams();
-  const currentKategori = searchParams.get("kategori");
-  const filteredTemplates = currentKategori
-    ? templates.filter(
-        (t) =>
-          CATEGORY_META[t.type].label.toLowerCase().replace(" ", "-") === currentKategori
-      )
-    : templates;
 
   return (
     <>

@@ -80,6 +80,7 @@ body {
   background: var(--color-surface);
   color: var(--color-on-surface);
   font-family: var(--font-sans);
+  overflow-x: clip;
 }
 
 /* ---------- DARK MODE ---------- */
