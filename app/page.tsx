@@ -79,7 +79,7 @@ export default function HomePage() {
   return (
     <>
       {/* HERO */}
-      <section className="w-full relative bg-surface">
+      <section className="w-full relative bg-surface overflow-hidden">
         <div className="relative z-[1] px-5 md:px-16 max-w-[1200px] mx-auto pt-[120px] pb-20 lg:pt-[160px] lg:pb-[120px] flex flex-col lg:flex-row items-center gap-12 lg:justify-center">
           <div className="flex-1 text-center lg:text-left z-10">
             <span className="inline-block max-w-full px-4 py-1.5 bg-primary-container text-on-primary-container text-label-md lg:text-label-lg font-semibold text-center rounded-full mb-6 border border-primary-fixed-dim/30 shadow-sm whitespace-normal">
